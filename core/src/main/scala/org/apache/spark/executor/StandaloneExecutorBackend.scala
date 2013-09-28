@@ -51,10 +51,10 @@ private[spark] class StandaloneExecutorBackend(
   }
 
   override def receive = {
-    case RegisteredExecutor(sparkProperties) =>
+    case RegisteredExecutor(sparkConfig) =>
       logInfo("Successfully registered with driver")
       // Make this host instead of hostPort ?
-      executor = new Executor(executorId, Utils.parseHostPort(hostPort)._1, sparkProperties)
+      executor = new Executor(executorId, Utils.parseHostPort(hostPort)._1, sparkConfig)
 
     case RegisterExecutorFailed(message) =>
       logError("Slave registration failed: " + message)

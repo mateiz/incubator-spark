@@ -19,6 +19,8 @@ package org.apache.spark.scheduler.cluster
 
 import java.nio.ByteBuffer
 
+import com.typesafe.config.Config
+
 import org.apache.spark.TaskState.TaskState
 import org.apache.spark.scheduler.TaskDescription
 import org.apache.spark.util.{Utils, SerializableBuffer}
@@ -31,8 +33,7 @@ private[spark] object StandaloneClusterMessages {
   // Driver to executors
   case class LaunchTask(task: TaskDescription) extends StandaloneClusterMessage
 
-  case class RegisteredExecutor(sparkProperties: Seq[(String, String)])
-    extends StandaloneClusterMessage
+  case class RegisteredExecutor(sparkConfig: Config) extends StandaloneClusterMessage
 
   case class RegisterExecutorFailed(message: String) extends StandaloneClusterMessage
 

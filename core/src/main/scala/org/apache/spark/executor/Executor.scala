@@ -25,6 +25,8 @@ import java.util.concurrent._
 import scala.collection.JavaConversions._
 import scala.collection.mutable.HashMap
 
+import com.typesafe.config.Config
+
 import org.apache.spark.scheduler._
 import org.apache.spark._
 import org.apache.spark.util.Utils
@@ -36,7 +38,7 @@ import org.apache.spark.util.Utils
 private[spark] class Executor(
     executorId: String,
     slaveHostname: String,
-    properties: Seq[(String, String)])
+    config: Config)
   extends Logging
 {
   // Application dependencies (added through SparkContext) that we've fetched so far on this node.
@@ -55,11 +57,6 @@ private[spark] class Executor(
 
   // Make sure the local hostname we report matches the cluster scheduler's name for this host
   Utils.setCustomHostname(slaveHostname)
-
-  // Set spark.* system properties from executor arg
-  for ((key, value) <- properties) {
-    System.setProperty(key, value)
-  }
 
   // If we are in yarn mode, systems can have different disk layouts so we must set it
   // to what Yarn on this system said was available. This will be used later when SparkEnv
@@ -100,8 +97,8 @@ private[spark] class Executor(
 
   val executorSource = new ExecutorSource(this, executorId)
 
-  // Initialize Spark environment (using system properties read above)
-  val env = SparkEnv.createFromSystemProperties(executorId, slaveHostname, 0, false, false)
+  // Initialize Spark environment (using passed in config)
+  val env = SparkEnv.createFromConfig(executorId, config, (slaveHostname, 0), false, false)
   SparkEnv.set(env)
   env.metricsSystem.registerSource(executorSource)
 

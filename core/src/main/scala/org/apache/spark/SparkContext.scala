@@ -27,6 +27,7 @@ import scala.collection.generic.Growable
 import scala.collection.JavaConversions._
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable.HashMap
+import scala.util.Try
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
@@ -66,6 +67,8 @@ import org.apache.spark.scheduler.StageInfo
 import org.apache.spark.storage.RDDInfo
 import org.apache.spark.storage.StorageStatus
 
+import com.typesafe.config.{Config, ConfigFactory}
+
 /**
  * Main entry point for Spark functionality. A SparkContext represents the connection to a Spark
  * cluster, and can be used to create RDDs, accumulators and broadcast variables on that cluster.
@@ -76,6 +79,7 @@ import org.apache.spark.storage.StorageStatus
  * @param jars Collection of JARs to send to the cluster. These can be paths on the local file
  *             system or HDFS, HTTP, HTTPS, or FTP URLs.
  * @param environment Environment variables to set on worker nodes.
+ * @param config a Typesafe Config object to override context settings
  */
 class SparkContext(
     val master: String,
@@ -85,27 +89,27 @@ class SparkContext(
     val environment: Map[String, String] = Map(),
     // This is used only by yarn for now, but should be relevant to other cluster types (mesos, etc) too.
     // This is typically generated from InputFormatInfo.computePreferredLocations .. host, set of data-local splits on host
-    val preferredNodeLocationData: scala.collection.Map[String, scala.collection.Set[SplitInfo]] = scala.collection.immutable.Map())
+    val preferredNodeLocationData: scala.collection.Map[String, scala.collection.Set[SplitInfo]] = scala.collection.immutable.Map(),
+    val config: Config = ConfigFactory.parseString(""))
   extends Logging {
 
   // Ensure logging is initialized before we spawn any threads
   initLogging()
 
-  // Set Spark driver host and port system properties
-  if (System.getProperty("spark.driver.host") == null) {
-    System.setProperty("spark.driver.host", Utils.localHostName())
-  }
-  if (System.getProperty("spark.driver.port") == null) {
-    System.setProperty("spark.driver.port", "0")
-  }
+  // Obtain a merged configuration.  The priorities are as follows:
+  // 1. Any config settings defined in the config parameter
+  // 2. Java system properties
+  // 3. Defaults in reference.conf in classpath
+  val mergedConfig = config.withFallback(ConfigFactory.load())
 
   val isLocal = (master == "local" || master.startsWith("local["))
 
   // Create the Spark execution environment (cache, map output tracker, etc)
-  private[spark] val env = SparkEnv.createFromSystemProperties(
+  private[spark] val env = SparkEnv.createFromConfig(
     "<driver>",
-    System.getProperty("spark.driver.host"),
-    System.getProperty("spark.driver.port").toInt,
+    mergedConfig,
+    (Try(mergedConfig.getString("spark.driver.host")).getOrElse(Utils.localHostName),
+     mergedConfig.getInt("spark.driver.port")),
     true,
     isLocal)
   SparkEnv.set(env)
@@ -628,6 +632,10 @@ class SparkContext(
   private [spark] def getPreferredLocs(rdd: RDD[_], partition: Int): Seq[TaskLocation] = {
     dagScheduler.getPreferredLocs(rdd, partition)
   }
+
+  /** Return the driver Akka host and port for remote access */
+  private[spark] def getDriverHostAndPort =
+    (env.config.getString("spark.driver.host"), env.config.getInt("spark.driver.port"))
 
   /**
    * Adds a JAR dependency for all tasks to be executed on this SparkContext in the future.

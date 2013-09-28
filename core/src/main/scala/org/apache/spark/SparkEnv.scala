@@ -19,9 +19,11 @@ package org.apache.spark
 
 import collection.mutable
 import serializer.Serializer
+import scala.util.Try
 
 import akka.actor.{Actor, ActorRef, Props, ActorSystemImpl, ActorSystem}
 import akka.remote.RemoteActorRefProvider
+import com.typesafe.config.{Config, ConfigFactory}
 
 import org.apache.spark.broadcast.BroadcastManager
 import org.apache.spark.metrics.MetricsSystem
@@ -33,6 +35,7 @@ import org.apache.spark.util.{Utils, AkkaUtils}
 import org.apache.spark.api.python.PythonWorkerFactory
 
 
+
 /**
  * Holds all the runtime environment objects for a running Spark instance (either master or worker),
  * including the serializer, Akka actor system, block manager, map output tracker, etc. Currently
@@ -41,6 +44,7 @@ import org.apache.spark.api.python.PythonWorkerFactory
  * SparkEnv.get (e.g. after creating a SparkContext) and set it with SparkEnv.set.
  */
 class SparkEnv (
+    val config: Config,
     val executorId: String,
     val actorSystem: ActorSystem,
     val serializerManager: SerializerManager,
@@ -95,6 +99,8 @@ class SparkEnv (
 }
 
 object SparkEnv extends Logging {
+  import collection.JavaConverters._
+
   private val env = new ThreadLocal[SparkEnv]
   @volatile private var lastSetSparkEnv : SparkEnv = _
 
@@ -118,19 +124,40 @@ object SparkEnv extends Logging {
 	  env.get()
   }
 
-  def createFromSystemProperties(
+  // Old createFromSystemProperties workflow:
+  //  Used in two places:
+  //  1. From driver (hostname and port are set to spark.driver.host/port)
+  //  2. From executor (local hostname and port, driver host/port comes from properties)
+  //  properties are reset after ActorSystem created, used elsewhere, including sent to Executor.
+  //  Ugh, global variables!
+  //
+  // New workflow:
+  //  config object is passed in, an updated copy is passed into SparkEnv and available to everyone.
+  //  Note that Typesafe Config objects are immutable so there is no danger of hard-to-debug state changes.
+  /**
+   * Creates a SparkEnv from configuration.
+   * @param executorId 0 for driver, or the executer ID
+   * @param config the Typesafe Config object to be used for configuring Spark
+   * @param akkaHostPortFunction: returns the host and port for initializing the ActorSystem
+   * @param isDriver true if this is the driver
+   * @param isLocal  true if running in local mode (single process)
+   */
+  def createFromConfig(
       executorId: String,
-      hostname: String,
-      port: Int,
+      config: Config,
+      akkaHostPortFunction: => (String, Int),
       isDriver: Boolean,
       isLocal: Boolean): SparkEnv = {
 
-    val (actorSystem, boundPort) = AkkaUtils.createActorSystem("spark", hostname, port)
+    val (akkaHost, akkaPort) = akkaHostPortFunction
+    val (actorSystem, boundPort) = AkkaUtils.createActorSystem("spark", akkaHost, akkaPort)
+    val configUpdates = collection.mutable.Map.empty[String, Any]
 
-    // Bit of a hack: If this is the driver and our port was 0 (meaning bind to any free port),
-    // figure out which port number Akka actually bound to and set spark.driver.port to it.
-    if (isDriver && port == 0) {
-      System.setProperty("spark.driver.port", boundPort.toString)
+    if (isDriver) {
+      configUpdates("spark.driver.host") = akkaHost
+      if (akkaPort == 0) {
+        configUpdates("spark.driver.port") = boundPort
+      }
     }
 
     // set only if unset until now.
@@ -139,8 +166,8 @@ object SparkEnv extends Logging {
         // unexpected
         Utils.logErrorWithStack("Unexpected NOT to have spark.hostPort set")
       }
-      Utils.checkHost(hostname)
-      System.setProperty("spark.hostPort", hostname + ":" + boundPort)
+      Utils.checkHost(akkaHost)
+      System.setProperty("spark.hostPort", akkaHost + ":" + boundPort)
     }
 
     val classLoader = Thread.currentThread.getContextClassLoader
@@ -165,8 +192,9 @@ object SparkEnv extends Logging {
         logInfo("Registering " + name)
         actorSystem.actorOf(Props(newActor), name = name)
       } else {
-        val driverHost: String = System.getProperty("spark.driver.host", "localhost")
-        val driverPort: Int = System.getProperty("spark.driver.port", "7077").toInt
+        // Not a driver, get the driver host/port from passed in config
+        val driverHost = Try(config.getString("spark.driver.host")).getOrElse("localhost")
+        val driverPort = Try(config.getInt("spark.driver.port")).getOrElse("7077")
         Utils.checkHost(driverHost, "Expected hostname")
         val url = "akka://spark@%s:%s/user/%s".format(driverHost, driverPort, name)
         logInfo("Connecting to " + name + ": " + url)
@@ -221,7 +249,10 @@ object SparkEnv extends Logging {
         "levels using the RDD.persist() method instead.")
     }
 
+    val newConfig = ConfigFactory.parseMap(configUpdates.asJava).withFallback(config)
+
     new SparkEnv(
+      newConfig,
       executorId,
       actorSystem,
       serializerManager,

@@ -27,6 +27,7 @@ import akka.pattern.ask
 import akka.remote.{RemoteClientShutdown, RemoteClientDisconnected, RemoteClientLifeCycleEvent}
 import akka.util.Duration
 import akka.util.duration._
+import com.typesafe.config.Config
 
 import org.apache.spark.{SparkException, Logging, TaskState}
 import org.apache.spark.scheduler.TaskDescription
@@ -42,10 +43,12 @@ private[spark]
 class StandaloneSchedulerBackend(scheduler: ClusterScheduler, actorSystem: ActorSystem)
   extends SchedulerBackend with Logging
 {
+  val config = scheduler.sc.env.config
+
   // Use an atomic variable to track total number of cores in the cluster for simplicity and speed
   var totalCoreCount = new AtomicInteger(0)
 
-  class DriverActor(sparkProperties: Seq[(String, String)]) extends Actor {
+  class DriverActor(sparkConfig: Config) extends Actor {
     private val executorActor = new HashMap[String, ActorRef]
     private val executorAddress = new HashMap[String, Address]
     private val executorHost = new HashMap[String, String]
@@ -69,7 +72,7 @@ class StandaloneSchedulerBackend(scheduler: ClusterScheduler, actorSystem: Actor
           sender ! RegisterExecutorFailed("Duplicate executor ID: " + executorId)
         } else {
           logInfo("Registered executor: " + sender + " with ID " + executorId)
-          sender ! RegisteredExecutor(sparkProperties)
+          sender ! RegisteredExecutor(sparkConfig)
           context.watch(sender)
           executorActor(executorId) = sender
           executorHost(executorId) = Utils.parseHostPort(hostPort)._1
@@ -149,17 +152,9 @@ class StandaloneSchedulerBackend(scheduler: ClusterScheduler, actorSystem: Actor
   val taskIdsOnSlave = new HashMap[String, HashSet[String]]
 
   override def start() {
-    val properties = new ArrayBuffer[(String, String)]
-    val iterator = System.getProperties.entrySet.iterator
-    while (iterator.hasNext) {
-      val entry = iterator.next
-      val (key, value) = (entry.getKey.toString, entry.getValue.toString)
-      if (key.startsWith("spark.") && !key.equals("spark.hostPort")) {
-        properties += ((key, value))
-      }
-    }
+    val restrictedConfig = config.withOnlyPath("spark").withoutPath("spark.hostPort")
     driverActor = actorSystem.actorOf(
-      Props(new DriverActor(properties)), name = StandaloneSchedulerBackend.ACTOR_NAME)
+      Props(new DriverActor(restrictedConfig)), name = StandaloneSchedulerBackend.ACTOR_NAME)
   }
 
   private val timeout = Duration.create(System.getProperty("spark.akka.askTimeout", "10").toLong, "seconds")
