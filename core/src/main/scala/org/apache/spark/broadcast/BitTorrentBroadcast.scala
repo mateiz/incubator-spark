@@ -27,7 +27,9 @@ import scala.math
 
 import org.apache.spark._
 import org.apache.spark.storage.StorageLevel
+import org.apache.spark.util.ConfigUpdater
 import org.apache.spark.util.Utils
+
 
 private[spark] class BitTorrentBroadcast[T](@transient var value_ : T, isLocal: Boolean, id: Long)
   extends Broadcast[T](id)
@@ -1049,7 +1051,8 @@ private[spark] class BitTorrentBroadcast[T](@transient var value_ : T, isLocal: 
 
 private[spark] class BitTorrentBroadcastFactory
 extends BroadcastFactory {
-  def initialize(isDriver: Boolean) { MultiTracker.initialize(isDriver) }
+  // TODO(ev): make MultiTracker take a config object
+  def initialize(isDriver: Boolean, config: ConfigUpdater) { MultiTracker.initialize(isDriver) }
 
   def newBroadcast[T](value_ : T, isLocal: Boolean, id: Long) =
     new BitTorrentBroadcast[T](value_, isLocal, id)

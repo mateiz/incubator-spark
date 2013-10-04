@@ -26,12 +26,12 @@ import it.unimi.dsi.fastutil.io.FastBufferedOutputStream
 import org.apache.spark.{HttpServer, Logging, SparkEnv}
 import org.apache.spark.io.CompressionCodec
 import org.apache.spark.storage.StorageLevel
-import org.apache.spark.util.{Utils, MetadataCleaner, TimeStampedHashSet}
+import org.apache.spark.util.{Utils, MetadataCleaner, TimeStampedHashSet, ConfigUpdater}
 
 
 private[spark] class HttpBroadcast[T](@transient var value_ : T, isLocal: Boolean, id: Long)
   extends Broadcast[T](id) with Logging with Serializable {
-  
+
   def value = value_
 
   def blockId: String = "broadcast_" + id
@@ -40,7 +40,7 @@ private[spark] class HttpBroadcast[T](@transient var value_ : T, isLocal: Boolea
     SparkEnv.get.blockManager.putSingle(blockId, value_, StorageLevel.MEMORY_AND_DISK, false)
   }
 
-  if (!isLocal) { 
+  if (!isLocal) {
     HttpBroadcast.write(id, value_)
   }
 
@@ -64,7 +64,9 @@ private[spark] class HttpBroadcast[T](@transient var value_ : T, isLocal: Boolea
 }
 
 private[spark] class HttpBroadcastFactory extends BroadcastFactory {
-  def initialize(isDriver: Boolean) { HttpBroadcast.initialize(isDriver) }
+  def initialize(isDriver: Boolean, config: ConfigUpdater) {
+    HttpBroadcast.initialize(isDriver, config)
+  }
 
   def newBroadcast[T](value_ : T, isLocal: Boolean, id: Long) =
     new HttpBroadcast[T](value_, isLocal, id)
@@ -86,20 +88,22 @@ private object HttpBroadcast extends Logging {
 
   private lazy val compressionCodec = CompressionCodec.createCodec()
 
-  def initialize(isDriver: Boolean) {
+  def initialize(isDriver: Boolean, config: ConfigUpdater) {
     synchronized {
       if (!initialized) {
-        bufferSize = System.getProperty("spark.buffer.size", "65536").toInt
-        compress = System.getProperty("spark.broadcast.compress", "true").toBoolean
+        bufferSize = config.config.getInt("spark.buffer.size")
+        compress = config.config.getBoolean("spark.broadcast.compress")
         if (isDriver) {
           createServer()
+          config.addUpdate("spark.httpBroadcast.uri", serverUri)
+        } else {
+          serverUri = config.config.getString("spark.httpBroadcast.uri")
         }
-        serverUri = System.getProperty("spark.httpBroadcast.uri")
         initialized = true
       }
     }
   }
-  
+
   def stop() {
     synchronized {
       if (server != null) {
@@ -116,7 +120,6 @@ private object HttpBroadcast extends Logging {
     server = new HttpServer(broadcastDir)
     server.start()
     serverUri = server.uri
-    System.setProperty("spark.httpBroadcast.uri", serverUri)
     logInfo("Broadcast server started at " + serverUri)
   }
 

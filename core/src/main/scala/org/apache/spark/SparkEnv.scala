@@ -31,7 +31,7 @@ import org.apache.spark.deploy.SparkHadoopUtil
 import org.apache.spark.storage.{BlockManagerMasterActor, BlockManager, BlockManagerMaster}
 import org.apache.spark.network.ConnectionManager
 import org.apache.spark.serializer.{Serializer, SerializerManager}
-import org.apache.spark.util.{Utils, AkkaUtils}
+import org.apache.spark.util.{Utils, AkkaUtils, ConfigUpdater}
 import org.apache.spark.api.python.PythonWorkerFactory
 
 
@@ -151,12 +151,12 @@ object SparkEnv extends Logging {
 
     val (akkaHost, akkaPort) = akkaHostPortFunction
     val (actorSystem, boundPort) = AkkaUtils.createActorSystem("spark", akkaHost, akkaPort)
-    val configUpdates = collection.mutable.Map.empty[String, Any]
+    val configUpdater = new ConfigUpdater(config)
 
     if (isDriver) {
-      configUpdates("spark.driver.host") = akkaHost
+      configUpdater.addUpdate("spark.driver.host", akkaHost)
       if (akkaPort == 0) {
-        configUpdates("spark.driver.port") = boundPort
+        configUpdater.addUpdate("spark.driver.port", boundPort)
       }
     }
 
@@ -209,7 +209,7 @@ object SparkEnv extends Logging {
 
     val connectionManager = blockManager.connectionManager
 
-    val broadcastManager = new BroadcastManager(isDriver)
+    val broadcastManager = new BroadcastManager(isDriver, configUpdater)
 
     val cacheManager = new CacheManager(blockManager)
 
@@ -249,10 +249,8 @@ object SparkEnv extends Logging {
         "levels using the RDD.persist() method instead.")
     }
 
-    val newConfig = ConfigFactory.parseMap(configUpdates.asJava).withFallback(config)
-
     new SparkEnv(
-      newConfig,
+      configUpdater.merge(),
       executorId,
       actorSystem,
       serializerManager,

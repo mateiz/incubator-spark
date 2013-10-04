@@ -26,6 +26,7 @@ import scala.math
 
 import org.apache.spark._
 import org.apache.spark.storage.StorageLevel
+import org.apache.spark.util.ConfigUpdater
 import org.apache.spark.util.Utils
 
 private[spark] class TreeBroadcast[T](@transient var value_ : T, isLocal: Boolean, id: Long)
@@ -164,7 +165,7 @@ extends Broadcast[T](id) with Logging with Serializable {
 
   def receiveBroadcast(variableID: Long): Boolean = {
     val gInfo = MultiTracker.getGuideInfo(variableID)
-    
+
     if (gInfo.listenPort == SourceInfo.TxOverGoToDefault) {
       return false
     }
@@ -265,7 +266,7 @@ extends Broadcast[T](id) with Logging with Serializable {
 
         arrayOfBlocks(hasBlocks) = bcBlock
         hasBlocks += 1
-        
+
         // Set to true if at least one block is received
         receptionSucceeded = true
         hasBlocksLock.synchronized { hasBlocksLock.notifyAll() }
@@ -426,7 +427,7 @@ extends Broadcast[T](id) with Logging with Serializable {
             // This should work since SourceInfo is a case class
             assert(listOfSources.contains(selectedSourceInfo))
 
-            // Remove first 
+            // Remove first
             // (Currently removing a source based on just one failure notification!)
             listOfSources = listOfSources - selectedSourceInfo
 
@@ -437,7 +438,7 @@ extends Broadcast[T](id) with Logging with Serializable {
                 setOfCompletedSources += thisWorkerInfo
               }
 
-              // Update leecher count and put it back in 
+              // Update leecher count and put it back in
               selectedSourceInfo.currentLeechers -= 1
               listOfSources += selectedSourceInfo
             }
@@ -476,8 +477,8 @@ extends Broadcast[T](id) with Logging with Serializable {
         var selectedSource: SourceInfo = null
 
         listOfSources.foreach { source =>
-          if ((source.hostAddress != skipSourceInfo.hostAddress || 
-               source.listenPort != skipSourceInfo.listenPort) && 
+          if ((source.hostAddress != skipSourceInfo.hostAddress ||
+               source.listenPort != skipSourceInfo.listenPort) &&
             source.currentLeechers < MultiTracker.MaxDegree &&
             source.currentLeechers > maxLeechers) {
               selectedSource = source
@@ -494,13 +495,13 @@ extends Broadcast[T](id) with Logging with Serializable {
 
   class ServeMultipleRequests
   extends Thread with Logging {
-    
+
     var threadPool = Utils.newDaemonCachedThreadPool()
-    
-    override def run() {      
+
+    override def run() {
       var serverSocket = new ServerSocket(0)
       listenPort = serverSocket.getLocalPort
-      
+
       logInfo("ServeMultipleRequests started with " + serverSocket)
 
       listenPortLock.synchronized { listenPortLock.notifyAll() }
@@ -514,7 +515,7 @@ extends Broadcast[T](id) with Logging with Serializable {
           } catch {
             case e: Exception => { }
           }
-          
+
           if (clientSocket != null) {
             logDebug("Serve: Accepted new client connection: " + clientSocket)
             try {
@@ -594,7 +595,7 @@ extends Broadcast[T](id) with Logging with Serializable {
 
 private[spark] class TreeBroadcastFactory
 extends BroadcastFactory {
-  def initialize(isDriver: Boolean) { MultiTracker.initialize(isDriver) }
+  def initialize(isDriver: Boolean, config: ConfigUpdater) { MultiTracker.initialize(isDriver) }
 
   def newBroadcast[T](value_ : T, isLocal: Boolean, id: Long) =
     new TreeBroadcast[T](value_, isLocal, id)
