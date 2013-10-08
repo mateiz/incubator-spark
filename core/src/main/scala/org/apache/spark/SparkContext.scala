@@ -101,6 +101,7 @@ class SparkContext(
   // 2. Java system properties
   // 3. Defaults in reference.conf in classpath
   val mergedConfig = config.withFallback(ConfigFactory.load())
+  logDebug("Starting Spark Context with config:\n" + mergedConfig.getConfig("spark").root.render)
 
   val isLocal = (master == "local" || master.startsWith("local["))
 

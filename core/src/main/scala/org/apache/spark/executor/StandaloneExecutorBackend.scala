@@ -53,6 +53,7 @@ private[spark] class StandaloneExecutorBackend(
   override def receive = {
     case RegisteredExecutor(sparkConfig) =>
       logInfo("Successfully registered with driver")
+      logInfo("Configuration: \n" + sparkConfig.root.render)
       // Make this host instead of hostPort ?
       executor = new Executor(executorId, Utils.parseHostPort(hostPort)._1, sparkConfig)
 
