@@ -25,6 +25,7 @@ import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 import scala.collection.JavaConversions._
 
 import com.google.protobuf.ByteString
+import com.typesafe.config.Config
 import org.apache.mesos.{Scheduler => MScheduler}
 import org.apache.mesos._
 import org.apache.mesos.Protos.{TaskInfo => MesosTaskInfo, TaskState => MesosTaskState, _}
@@ -125,22 +126,13 @@ private[spark] class MesosSchedulerBackend(
   }
 
   /**
-   * Create and serialize the executor argument to pass to Mesos. Our executor arg is an array
-   * containing all the spark.* system properties in the form of (String, String) pairs.
+   * Create and serialize the executor argument to pass to Mesos. Our executor arg is the Config
+   * object containing only the spark.* keys.
    */
   private def createExecArg(): Array[Byte] = {
     if (execArgs == null) {
-      val props = new HashMap[String, String]
-      val iterator = System.getProperties.entrySet.iterator
-      while (iterator.hasNext) {
-        val entry = iterator.next
-        val (key, value) = (entry.getKey.toString, entry.getValue.toString)
-        if (key.startsWith("spark.")) {
-          props(key) = value
-        }
-      }
-      // Serialize the map as an array of (String, String) pairs
-      execArgs = Utils.serialize(props.toArray)
+      val config = sc.env.config
+      execArgs = Utils.serialize(config.withOnlyPath("spark"))
     }
     return execArgs
   }

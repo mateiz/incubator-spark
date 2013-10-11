@@ -22,7 +22,7 @@ import org.apache.mesos.{Executor => MesosExecutor, MesosExecutorDriver, MesosNa
 import org.apache.mesos.Protos.{TaskState => MesosTaskState, TaskStatus => MesosTaskStatus, _}
 import org.apache.spark.TaskState.TaskState
 import com.google.protobuf.ByteString
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.Config
 import org.apache.spark.{Logging}
 import org.apache.spark.TaskState
 import org.apache.spark.util.Utils
@@ -53,11 +53,11 @@ private[spark] class MesosExecutorBackend
       slaveInfo: SlaveInfo) {
     logInfo("Registered with Mesos as executor ID " + executorInfo.getExecutorId.getValue)
     this.driver = driver
-    val properties = Utils.deserialize[Array[(String, String)]](executorInfo.getData.toByteArray)
+    val config = Utils.deserialize[Config](executorInfo.getData.toByteArray)
     executor = new Executor(
       executorInfo.getExecutorId.getValue,
       slaveInfo.getHostname,
-      ConfigFactory.parseMap(properties.toMap.asJava))
+      config)
   }
 
   override def launchTask(d: ExecutorDriver, taskInfo: TaskInfo) {
