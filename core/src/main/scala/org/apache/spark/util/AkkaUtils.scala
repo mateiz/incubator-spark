@@ -18,7 +18,7 @@
 package org.apache.spark.util
 
 import akka.actor.{ActorSystem, ExtendedActorSystem}
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{Config, ConfigFactory}
 import akka.util.duration._
 import akka.remote.RemoteActorRefProvider
 
@@ -35,15 +35,16 @@ private[spark] object AkkaUtils {
    * Note: the `name` parameter is important, as even if a client sends a message to right
    * host + port, if the system name is incorrect, Akka will drop the message.
    */
-  def createActorSystem(name: String, host: String, port: Int): (ActorSystem, Int) = {
-    val akkaThreads = System.getProperty("spark.akka.threads", "4").toInt
-    val akkaBatchSize = System.getProperty("spark.akka.batchSize", "15").toInt
-    val akkaTimeout = System.getProperty("spark.akka.timeout", "60").toInt
-    val akkaFrameSize = System.getProperty("spark.akka.frameSize", "10").toInt
-    val lifecycleEvents = if (System.getProperty("spark.akka.logLifecycleEvents", "false").toBoolean) "on" else "off"
+  def createActorSystem(name: String, host: String, port: Int,
+                        config: Config = ConfigFactory.load()): (ActorSystem, Int) = {
+    val akkaThreads = config.getInt("spark.akka.threads")
+    val akkaBatchSize = config.getInt("spark.akka.batchSize")
+    val akkaTimeout = config.getInt("spark.akka.timeout")
+    val akkaFrameSize = config.getInt("spark.akka.frameSize")
+    val lifecycleEvents = if (config.getBoolean("spark.akka.logLifecycleEvents")) "on" else "off"
     // 10 seconds is the default akka timeout, but in a cluster, we need higher by default.
-    val akkaWriteTimeout = System.getProperty("spark.akka.writeTimeout", "30").toInt
-    
+    val akkaWriteTimeout = config.getInt("spark.akka.writeTimeout")
+
     val akkaConf = ConfigFactory.parseString("""
       akka.daemonic = on
       akka.event-handlers = ["akka.event.slf4j.Slf4jEventHandler"]
@@ -59,7 +60,7 @@ private[spark] object AkkaUtils {
       akka.remote.log-remote-lifecycle-events = %s
       akka.remote.netty.write-timeout = %ds
       """.format(host, port, akkaTimeout, akkaFrameSize, akkaThreads, akkaBatchSize,
-        lifecycleEvents, akkaWriteTimeout))
+        lifecycleEvents, akkaWriteTimeout)).withFallback(config)
 
     val actorSystem = ActorSystem(name, akkaConf)
 

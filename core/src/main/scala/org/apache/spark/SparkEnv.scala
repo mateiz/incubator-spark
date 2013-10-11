@@ -150,7 +150,7 @@ object SparkEnv extends Logging {
       isLocal: Boolean): SparkEnv = {
 
     val (akkaHost, akkaPort) = akkaHostPortFunction
-    val (actorSystem, boundPort) = AkkaUtils.createActorSystem("spark", akkaHost, akkaPort)
+    val (actorSystem, boundPort) = AkkaUtils.createActorSystem("spark", akkaHost, akkaPort, config)
     val configUpdater = new ConfigUpdater(config)
 
     if (isDriver) {
