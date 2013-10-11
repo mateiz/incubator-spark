@@ -19,7 +19,9 @@ package org.apache.spark.scheduler.cluster
 
 import java.nio.ByteBuffer
 
-import org.scalatest.{BeforeAndAfter, BeforeAndAfterAll, FunSuite}
+import org.scalatest.{BeforeAndAfter, FunSuite}
+
+import com.typesafe.config.ConfigFactory
 
 import org.apache.spark.{LocalSparkContext, SparkContext, SparkEnv}
 import org.apache.spark.scheduler.{DirectTaskResult, IndirectTaskResult, TaskResult}
@@ -43,35 +45,29 @@ class ResultDeletingTaskResultGetter(sparkEnv: SparkEnv, scheduler: ClusterSched
         case IndirectTaskResult(blockId) =>
           sparkEnv.blockManager.master.removeBlock(blockId)
         case directResult: DirectTaskResult[_] =>
-          taskSetManager.abort("Internal error: expect only indirect results") 
+          taskSetManager.abort("Internal error: expect only indirect results")
       }
       serializedData.rewind()
       removedResult = true
     }
     super.enqueueSuccessfulTask(taskSetManager, tid, serializedData)
-  } 
+  }
 }
 
 /**
  * Tests related to handling task results (both direct and indirect).
  */
-class TaskResultGetterSuite extends FunSuite with BeforeAndAfter with BeforeAndAfterAll
+class TaskResultGetterSuite extends FunSuite with BeforeAndAfter
   with LocalSparkContext {
 
-  override def beforeAll {
-    // Set the Akka frame size to be as small as possible (it must be an integer, so 1 is as small
-    // as we can make it) so the tests don't take too long.
-    System.setProperty("spark.akka.frameSize", "1")
-  }
+  // Set the Akka frame size to be as small as possible (it must be an integer, so 1 is as small
+  // as we can make it) so the tests don't take too long.
+  val testConfig = ConfigFactory.parseString("""spark.akka.frameSize = 1""")
 
   before {
     // Use local-cluster mode because results are returned differently when running with the
     // LocalScheduler.
-    sc = new SparkContext("local-cluster[1,1,512]", "test")
-  }
-
-  override def afterAll {
-    System.clearProperty("spark.akka.frameSize")
+    sc = new SparkContext("local-cluster[1,1,512]", "test", config = testConfig)
   }
 
   test("handling results smaller than Akka frame size") {
@@ -79,7 +75,7 @@ class TaskResultGetterSuite extends FunSuite with BeforeAndAfter with BeforeAndA
     assert(result === 2)
   }
 
-  test("handling results larger than Akka frame size") { 
+  test("handling results larger than Akka frame size") {
     val akkaFrameSize =
       sc.env.actorSystem.settings.config.getBytes("akka.remote.netty.message-frame-size").toInt
     val result = sc.parallelize(Seq(1), 1).map(x => 1.to(akkaFrameSize).toArray).reduce((x, y) => x)
