@@ -398,16 +398,6 @@ private[spark] object Utils extends Logging {
     InetAddress.getByName(address).getHostName
   }
 
-  def localHostPort(): String = {
-    val retval = System.getProperty("spark.hostPort", null)
-    if (retval == null) {
-      logErrorWithStack("spark.hostPort not set but invoking localHostPort")
-      return localHostName()
-    }
-
-    retval
-  }
-
   def checkHost(host: String, message: String = "") {
     assert(host.indexOf(':') == -1, message)
   }

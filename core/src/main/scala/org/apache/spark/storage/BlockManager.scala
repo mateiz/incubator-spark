@@ -136,8 +136,6 @@ private[spark] class BlockManager(
 
   val heartBeatFrequency = BlockManager.getHeartBeatFrequencyFromSystemProperties
 
-  val hostPort = Utils.localHostPort()
-
   val slaveActor = actorSystem.actorOf(Props(new BlockManagerSlaveActor(this)),
     name = "BlockManagerActor" + BlockManager.ID_GENERATOR.next)
 
@@ -504,7 +502,7 @@ private[spark] class BlockManager(
        throw new IllegalArgumentException("Block Id is null")
      }
      logDebug("Getting remote block " + blockId + " as bytes")
-     
+
      val locations = master.getLocations(blockId)
      for (loc <- locations) {
        logDebug("Getting remote block " + blockId + " from " + loc)

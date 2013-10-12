@@ -90,7 +90,6 @@ private[spark] object StandaloneExecutorBackend {
     val (actorSystem, boundPort) = AkkaUtils.createActorSystem("sparkExecutor", hostname, 0)
     // set it
     val sparkHostPort = hostname + ":" + boundPort
-    System.setProperty("spark.hostPort", sparkHostPort)
     val actor = actorSystem.actorOf(
       Props(new StandaloneExecutorBackend(driverUrl, executorId, sparkHostPort, cores)),
       name = "Executor")

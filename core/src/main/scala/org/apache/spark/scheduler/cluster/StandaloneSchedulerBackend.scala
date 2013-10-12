@@ -152,7 +152,7 @@ class StandaloneSchedulerBackend(scheduler: ClusterScheduler, actorSystem: Actor
   val taskIdsOnSlave = new HashMap[String, HashSet[String]]
 
   override def start() {
-    val restrictedConfig = config.withOnlyPath("spark").withoutPath("spark.hostPort")
+    val restrictedConfig = config.withOnlyPath("spark")
     driverActor = actorSystem.actorOf(
       Props(new DriverActor(restrictedConfig)), name = StandaloneSchedulerBackend.ACTOR_NAME)
   }
