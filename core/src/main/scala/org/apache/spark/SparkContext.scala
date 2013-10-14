@@ -102,7 +102,8 @@ class SparkContext(
   // Obtain a merged configuration.  The priorities are as follows:
   // 1. Any config settings defined in the config parameter
   // 2. Java system properties
-  // 3. Defaults in spark-defaults.conf in classpath
+  // 3. config file (could be JSON) defined at URL in system property "spark.config.url", if defined
+  // 4. Defaults in spark-defaults.conf in classpath
   val mergedConfig = config.withFallback(ConfigUtils.loadConfig())
   logDebug("Starting Spark Context with config:\n" + mergedConfig.getConfig("spark").root.render)
 

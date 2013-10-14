@@ -20,7 +20,7 @@ package org.apache.spark.util
 import scala.collection.JavaConverters._
 import scala.collection.mutable.HashMap
 
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.{Config, ConfigFactory, ConfigParseOptions}
 
 /**
  * A bunch of implicit conversions to add methods for convenience in working with Typesafe Config objects
@@ -29,16 +29,28 @@ object ConfigUtils {
   def configFromMap(map: collection.Map[String, _]): Config = ConfigFactory.parseMap(map.asJava)
 
   val SparkDefaultConf = "spark-defaults.conf"
+  val SparkConfigUrlProperty = "spark.config.url"
+
+  // Change the default parse options so that missing files throw an exception, instead of returning empty
+  val parseOptions = ConfigParseOptions.defaults.setAllowMissing(false)
 
   /**
    * Loads the Spark configuration according to the following priorities (what appears higher on the list
    * will override keys on the bottom)
    * 1. System properties
-   * 2. spark-defaults.conf (in classpath / resources)
+   * 2. config file (could be JSON) defined at URL in system property "spark.config.url", if defined
+   * 3. spark-defaults.conf (in classpath / resources)
    */
   def loadConfig(): Config = {
     val properties = ConfigFactory.systemProperties()
-    properties.withFallback(ConfigFactory.parseResources(SparkDefaultConf))
+    val defaults = ConfigFactory.parseResources(SparkDefaultConf, parseOptions)
+    System.getProperty(SparkConfigUrlProperty) match {
+      case null =>
+        properties.withFallback(defaults)
+      case configUrl =>
+        val javaUrl = new java.net.URL(configUrl)
+        properties.withFallback(ConfigFactory.parseURL(javaUrl, parseOptions)).withFallback(defaults)
+    }
   }
 }
 
