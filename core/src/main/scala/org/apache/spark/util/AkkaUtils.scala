@@ -36,7 +36,7 @@ private[spark] object AkkaUtils {
    * host + port, if the system name is incorrect, Akka will drop the message.
    */
   def createActorSystem(name: String, host: String, port: Int,
-                        config: Config = ConfigFactory.load()): (ActorSystem, Int) = {
+                        config: Config = ConfigUtils.loadConfig()): (ActorSystem, Int) = {
     val akkaThreads = config.getInt("spark.akka.threads")
     val akkaBatchSize = config.getInt("spark.akka.batchSize")
     val akkaTimeout = config.getInt("spark.akka.timeout")

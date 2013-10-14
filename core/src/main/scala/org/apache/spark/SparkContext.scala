@@ -63,7 +63,7 @@ import org.apache.spark.scheduler.local.LocalScheduler
 import org.apache.spark.scheduler.cluster.mesos.{CoarseMesosSchedulerBackend, MesosSchedulerBackend}
 import org.apache.spark.storage.{StorageUtils, BlockManagerSource}
 import org.apache.spark.ui.SparkUI
-import org.apache.spark.util.{ClosureCleaner, Utils, MetadataCleaner, TimeStampedHashMap}
+import org.apache.spark.util.{ClosureCleaner, Utils, MetadataCleaner, TimeStampedHashMap, ConfigUtils}
 import org.apache.spark.scheduler.StageInfo
 import org.apache.spark.storage.RDDInfo
 import org.apache.spark.storage.StorageStatus
@@ -93,7 +93,7 @@ class SparkContext(
     // of data-local splits on host
     val preferredNodeLocationData: scala.collection.Map[String, scala.collection.Set[SplitInfo]] =
       scala.collection.immutable.Map(),
-    val config: Config = ConfigFactory.parseString(""))
+    val config: Config = ConfigFactory.empty())
   extends Logging {
 
   // Ensure logging is initialized before we spawn any threads
@@ -102,8 +102,8 @@ class SparkContext(
   // Obtain a merged configuration.  The priorities are as follows:
   // 1. Any config settings defined in the config parameter
   // 2. Java system properties
-  // 3. Defaults in reference.conf in classpath
-  val mergedConfig = config.withFallback(ConfigFactory.load())
+  // 3. Defaults in spark-defaults.conf in classpath
+  val mergedConfig = config.withFallback(ConfigUtils.loadConfig())
   logDebug("Starting Spark Context with config:\n" + mergedConfig.getConfig("spark").root.render)
 
   val isLocal = (master == "local" || master.startsWith("local["))

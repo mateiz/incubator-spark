@@ -27,6 +27,19 @@ import com.typesafe.config.{Config, ConfigFactory}
  */
 object ConfigUtils {
   def configFromMap(map: collection.Map[String, _]): Config = ConfigFactory.parseMap(map.asJava)
+
+  val SparkDefaultConf = "spark-defaults.conf"
+
+  /**
+   * Loads the Spark configuration according to the following priorities (what appears higher on the list
+   * will override keys on the bottom)
+   * 1. System properties
+   * 2. spark-defaults.conf (in classpath / resources)
+   */
+  def loadConfig(): Config = {
+    val properties = ConfigFactory.systemProperties()
+    properties.withFallback(ConfigFactory.parseResources(SparkDefaultConf))
+  }
 }
 
 /**
