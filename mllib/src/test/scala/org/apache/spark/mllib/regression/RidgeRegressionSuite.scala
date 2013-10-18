@@ -37,7 +37,6 @@ class RidgeRegressionSuite extends FunSuite with BeforeAndAfterAll {
 
   override def afterAll() {
     sc.stop()
-    System.clearProperty("spark.driver.port")
   }
 
   def predictionError(predictions: Seq[Double], input: Seq[LabeledPoint]) = {

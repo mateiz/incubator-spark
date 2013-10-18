@@ -68,7 +68,6 @@ class SVMSuite extends FunSuite with BeforeAndAfterAll {
 
   override def afterAll() {
     sc.stop()
-    System.clearProperty("spark.driver.port")
   }
 
   def validatePrediction(predictions: Seq[Double], input: Seq[LabeledPoint]) {

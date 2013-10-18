@@ -36,7 +36,6 @@ class KMeansSuite extends FunSuite with BeforeAndAfterAll {
 
   override def afterAll() {
     sc.stop()
-    System.clearProperty("spark.driver.port")
   }
 
   val EPSILON = 1e-4
