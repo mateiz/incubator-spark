@@ -45,10 +45,6 @@ class CheckpointSuite extends TestSuiteBase with BeforeAndAfter {
   after {
     if (ssc != null) ssc.stop()
     FileUtils.deleteDirectory(new File(checkpointDir))
-
-    // To avoid Akka rebinding to the same port, since it doesn't unbind immediately on shutdown
-    System.clearProperty("spark.driver.port")
-    System.clearProperty("spark.hostPort")
   }
 
   var ssc: StreamingContext = null
@@ -342,8 +338,6 @@ class CheckpointSuite extends TestSuiteBase with BeforeAndAfter {
       "\n-------------------------------------------\n"
     )
     ssc = new StreamingContext(checkpointDir)
-    System.clearProperty("spark.driver.port")
-    System.clearProperty("spark.hostPort")
     ssc.start()
     val outputNew = advanceTimeWithRealDelay[V](ssc, nextNumBatches)
     // the first element will be re-processed data of the last batch before restart

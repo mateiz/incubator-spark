@@ -176,8 +176,6 @@ object MasterFailureTest extends Logging {
     fs.mkdirs(testDir)
 
     // Setup the streaming computation with the given operation
-    System.clearProperty("spark.driver.port")
-    System.clearProperty("spark.hostPort")
     var ssc = new StreamingContext("local[4]", "MasterFailureTest", batchDuration, null, Nil, Map())
     ssc.checkpoint(checkpointDir.toString)
     val inputStream = ssc.textFileStream(testDir.toString)
@@ -223,8 +221,6 @@ object MasterFailureTest extends Logging {
         // (ii) The last expected output has not been generated yet
         // (iii) Its not timed out yet
         System.clearProperty("spark.streaming.clock")
-        System.clearProperty("spark.driver.port")
-        System.clearProperty("spark.hostPort")
         ssc.start()
         val startTime = System.currentTimeMillis()
         while (!killed && !isLastOutputGenerated && !isTimedOut) {
@@ -389,15 +385,15 @@ class FileGeneratingThread(input: Seq[String], testDir: Path, interval: Long)
             fs.rename(tempHadoopFile, hadoopFile)
 	    done = true
 	  } catch {
-	    case ioe: IOException => { 
-              fs = testDir.getFileSystem(new Configuration()) 
+	    case ioe: IOException => {
+              fs = testDir.getFileSystem(new Configuration())
               logWarning("Attempt " + tries + " at generating file " + hadoopFile + " failed.", ioe)
 	    }
 	  }
         }
-	if (!done) 
+	if (!done)
           logError("Could not generate file " + hadoopFile)
-        else 
+        else
           logInfo("Generated file " + hadoopFile + " at " + System.currentTimeMillis)
         Thread.sleep(interval)
         localFile.delete()
