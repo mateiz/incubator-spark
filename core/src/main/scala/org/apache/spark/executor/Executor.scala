@@ -24,6 +24,7 @@ import java.util.concurrent._
 
 import scala.collection.JavaConversions._
 import scala.collection.mutable.HashMap
+import scala.util.{Try, Success}
 
 import com.typesafe.config.Config
 
@@ -227,22 +228,21 @@ private[spark] class Executor(
    * new classes defined by the REPL as the user types code
    */
   private def addReplClassLoaderIfNeeded(parent: ClassLoader): ClassLoader = {
-    val classUri = config.getString("spark.repl.class.uri")
-    if (classUri != null) {
-      logInfo("Using REPL class URI: " + classUri)
-      try {
-        val klass = Class.forName("org.apache.spark.repl.ExecutorClassLoader")
-          .asInstanceOf[Class[_ <: ClassLoader]]
-        val constructor = klass.getConstructor(classOf[String], classOf[ClassLoader])
-        return constructor.newInstance(classUri, parent)
-      } catch {
-        case _: ClassNotFoundException =>
-          logError("Could not find org.apache.spark.repl.ExecutorClassLoader on classpath!")
-          System.exit(1)
-          null
-      }
-    } else {
-      return parent
+    Try(config.getString("spark.repl.class.uri")) match {
+      case Success(classUri) =>
+        logInfo("Using REPL class URI: " + classUri)
+        try {
+          val klass = Class.forName("org.apache.spark.repl.ExecutorClassLoader")
+            .asInstanceOf[Class[_ <: ClassLoader]]
+          val constructor = klass.getConstructor(classOf[String], classOf[ClassLoader])
+          constructor.newInstance(classUri, parent)
+        } catch {
+          case _: ClassNotFoundException =>
+            logError("Could not find org.apache.spark.repl.ExecutorClassLoader on classpath!")
+            System.exit(1)
+            null
+        }
+      case _ => parent
     }
   }
 
