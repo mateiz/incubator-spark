@@ -227,7 +227,7 @@ private[spark] class Executor(
    * new classes defined by the REPL as the user types code
    */
   private def addReplClassLoaderIfNeeded(parent: ClassLoader): ClassLoader = {
-    val classUri = System.getProperty("spark.repl.class.uri")
+    val classUri = config.getString("spark.repl.class.uri")
     if (classUri != null) {
       logInfo("Using REPL class URI: " + classUri)
       try {
