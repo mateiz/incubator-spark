@@ -43,7 +43,7 @@ private[spark]
 class StandaloneSchedulerBackend(scheduler: ClusterScheduler, actorSystem: ActorSystem)
   extends SchedulerBackend with Logging
 {
-  val config = scheduler.sc.env.config
+  val config = scheduler.sc.env.conf
 
   // Use an atomic variable to track total number of cores in the cluster for simplicity and speed
   var totalCoreCount = new AtomicInteger(0)

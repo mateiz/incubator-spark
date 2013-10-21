@@ -660,7 +660,7 @@ class SparkContext(
 
   /** Return the driver Akka host and port for remote access */
   private[spark] def getDriverHostAndPort =
-    (env.config.getString("spark.driver.host"), env.config.getInt("spark.driver.port"))
+    (env.conf.getString("spark.driver.host"), env.conf.getInt("spark.driver.port"))
 
   /**
    * Adds a JAR dependency for all tasks to be executed on this SparkContext in the future.

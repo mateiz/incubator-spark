@@ -44,7 +44,7 @@ import org.apache.spark.api.python.PythonWorkerFactory
  * SparkEnv.get (e.g. after creating a SparkContext) and set it with SparkEnv.set.
  */
 class SparkEnv (
-    val config: Config,
+    val conf: Config,
     val executorId: String,
     val actorSystem: ActorSystem,
     val serializerManager: SerializerManager,
@@ -124,18 +124,10 @@ object SparkEnv extends Logging {
 	  env.get()
   }
 
-  // Old createFromSystemProperties workflow:
-  //  Used in two places:
-  //  1. From driver (hostname and port are set to spark.driver.host/port)
-  //  2. From executor (local hostname and port, driver host/port comes from properties)
-  //  properties are reset after ActorSystem created, used elsewhere, including sent to Executor.
-  //  Ugh, global variables!
-  //
-  // New workflow:
-  //  config object is passed in, an updated copy is passed into SparkEnv and available to everyone.
-  //  Note that Typesafe Config objects are immutable so there is no danger of hard-to-debug state changes.
   /**
    * Creates a SparkEnv from configuration.
+   * The config object passed in is not modified (all Typesafe Config objects are immutable).  However,
+   * updates are merged into a new config object and passed into SparkEnv.
    * @param executorId 0 for driver, or the executer ID
    * @param config the Typesafe Config object to be used for configuring Spark
    * @param akkaHostPortFunction: returns the host and port for initializing the ActorSystem

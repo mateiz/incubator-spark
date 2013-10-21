@@ -131,7 +131,7 @@ private[spark] class MesosSchedulerBackend(
    */
   private def createExecArg(): Array[Byte] = {
     if (execArgs == null) {
-      val config = sc.env.config
+      val config = sc.env.conf
       execArgs = Utils.serialize(config.withOnlyPath("spark"))
     }
     return execArgs
