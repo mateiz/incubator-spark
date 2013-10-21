@@ -28,7 +28,7 @@ import com.typesafe.config.{Config, ConfigFactory, ConfigParseOptions}
 object ConfigUtils {
   def configFromMap(map: collection.Map[String, _]): Config = ConfigFactory.parseMap(map.asJava)
 
-  val SparkDefaultConf = "spark-defaults.conf"
+  val SparkDefaultConf = "org/apache/spark/spark-defaults.conf"
   val SparkConfigUrlProperty = "spark.config.url"
 
   // Change the default parse options so that missing files throw an exception, instead of returning empty
