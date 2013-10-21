@@ -23,7 +23,7 @@ import scala.collection.mutable.HashMap
 import com.typesafe.config.{Config, ConfigFactory, ConfigParseOptions}
 
 /**
- * A bunch of implicit conversions to add methods for convenience in working with Typesafe Config objects
+ * Methods and implicits for convenience in working with Typesafe Config objects
  */
 object ConfigUtils {
   def configFromMap(map: collection.Map[String, _]): Config = ConfigFactory.parseMap(map.asJava)
@@ -52,22 +52,17 @@ object ConfigUtils {
         properties.withFallback(ConfigFactory.parseURL(javaUrl, parseOptions)).withFallback(defaults)
     }
   }
+
+  implicit def config2RichConfig(config: Config): RichConfig = new RichConfig(config)
 }
 
 /**
- * A wrapper for config object which stores updates.  Since the config object is immutable,
- * the updates are stored in a separate hashmap, then the merge method can be called to produce
- * a newer, merged, immutable config.
+ * Adds convenience methods for dealing with Typesafe Config objects
  */
-class ConfigUpdater(val config: Config) {
-  private val updates = new HashMap[String, Any]
+class RichConfig(config: Config) {
+  def ++(other: Config): Config = other.withFallback(config)
+  def ++(map: collection.Map[String, _]): Config = ConfigUtils.configFromMap(map).withFallback(config)
 
-  def addUpdate(key: String, value: Any) {
-    updates(key) = value
-  }
-
-  def merge(): Config = {
-    ConfigUtils.configFromMap(updates).withFallback(config)
-  }
+  /** config + ("some.key" -> value) */
+  def +(keyValue: (String, Any)): Config = ++(Map(keyValue))
 }
-

@@ -24,9 +24,10 @@ import java.util.{Comparator, Random, UUID}
 import scala.collection.mutable.{ListBuffer, Map, Set}
 import scala.math
 
+import com.typesafe.config.Config
+
 import org.apache.spark._
 import org.apache.spark.storage.StorageLevel
-import org.apache.spark.util.ConfigUpdater
 import org.apache.spark.util.Utils
 
 private[spark] class TreeBroadcast[T](@transient var value_ : T, isLocal: Boolean, id: Long)
@@ -595,10 +596,12 @@ extends Broadcast[T](id) with Logging with Serializable {
 
 private[spark] class TreeBroadcastFactory
 extends BroadcastFactory {
-  def initialize(isDriver: Boolean, config: ConfigUpdater) { MultiTracker.initialize(isDriver) }
+  def initialize(isDriver: Boolean, config: Config) { MultiTracker.initialize(isDriver) }
 
   def newBroadcast[T](value_ : T, isLocal: Boolean, id: Long) =
     new TreeBroadcast[T](value_, isLocal, id)
 
   def stop() { MultiTracker.stop() }
+
+  def configUpdates = Map.empty[String, Any]
 }

@@ -20,13 +20,14 @@ package org.apache.spark.broadcast
 import java.io.{File, FileOutputStream, ObjectInputStream, OutputStream}
 import java.net.URL
 
+import com.typesafe.config.Config
 import it.unimi.dsi.fastutil.io.FastBufferedInputStream
 import it.unimi.dsi.fastutil.io.FastBufferedOutputStream
 
 import org.apache.spark.{HttpServer, Logging, SparkEnv}
 import org.apache.spark.io.CompressionCodec
 import org.apache.spark.storage.StorageLevel
-import org.apache.spark.util.{Utils, MetadataCleaner, TimeStampedHashSet, ConfigUpdater}
+import org.apache.spark.util.{Utils, MetadataCleaner, TimeStampedHashSet}
 
 
 private[spark] class HttpBroadcast[T](@transient var value_ : T, isLocal: Boolean, id: Long)
@@ -64,7 +65,7 @@ private[spark] class HttpBroadcast[T](@transient var value_ : T, isLocal: Boolea
 }
 
 private[spark] class HttpBroadcastFactory extends BroadcastFactory {
-  def initialize(isDriver: Boolean, config: ConfigUpdater) {
+  def initialize(isDriver: Boolean, config: Config) {
     HttpBroadcast.initialize(isDriver, config)
   }
 
@@ -72,15 +73,19 @@ private[spark] class HttpBroadcastFactory extends BroadcastFactory {
     new HttpBroadcast[T](value_, isLocal, id)
 
   def stop() { HttpBroadcast.stop() }
+
+  def configUpdates = HttpBroadcast.configUpdates
 }
 
 private object HttpBroadcast extends Logging {
+  var configUpdates = Map.empty[String, Any]
+
   private var initialized = false
 
   private var broadcastDir: File = null
   private var compress: Boolean = false
-  private var bufferSize: Int = 65536
   private var serverUri: String = null
+  private var bufferSize: Int = 65536
   private var server: HttpServer = null
 
   private val files = new TimeStampedHashSet[String]
@@ -88,16 +93,16 @@ private object HttpBroadcast extends Logging {
 
   private lazy val compressionCodec = CompressionCodec.createCodec()
 
-  def initialize(isDriver: Boolean, config: ConfigUpdater) {
+  def initialize(isDriver: Boolean, config: Config) {
     synchronized {
       if (!initialized) {
-        bufferSize = config.config.getInt("spark.buffer.size")
-        compress = config.config.getBoolean("spark.broadcast.compress")
+        bufferSize = config.getInt("spark.buffer.size")
+        compress = config.getBoolean("spark.broadcast.compress")
         if (isDriver) {
           createServer()
-          config.addUpdate("spark.httpBroadcast.uri", serverUri)
+          configUpdates = Map("spark.httpBroadcast.uri" -> serverUri)
         } else {
-          serverUri = config.config.getString("spark.httpBroadcast.uri")
+          serverUri = config.getString("spark.httpBroadcast.uri")
         }
         initialized = true
       }

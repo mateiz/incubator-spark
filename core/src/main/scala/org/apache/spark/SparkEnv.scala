@@ -31,7 +31,7 @@ import org.apache.spark.deploy.SparkHadoopUtil
 import org.apache.spark.storage.{BlockManagerMasterActor, BlockManager, BlockManagerMaster}
 import org.apache.spark.network.ConnectionManager
 import org.apache.spark.serializer.{Serializer, SerializerManager}
-import org.apache.spark.util.{Utils, AkkaUtils, ConfigUpdater}
+import org.apache.spark.util.{Utils, AkkaUtils}
 import org.apache.spark.api.python.PythonWorkerFactory
 
 
@@ -148,16 +148,15 @@ object SparkEnv extends Logging {
       akkaHostPortFunction: => (String, Int),
       isDriver: Boolean,
       isLocal: Boolean): SparkEnv = {
+    import org.apache.spark.util.ConfigUtils._
 
     val (akkaHost, akkaPort) = akkaHostPortFunction
     val (actorSystem, boundPort) = AkkaUtils.createActorSystem("spark", akkaHost, akkaPort, config)
-    val configUpdater = new ConfigUpdater(config)
 
-    if (isDriver) {
-      configUpdater.addUpdate("spark.driver.host", akkaHost)
-      if (akkaPort == 0) {
-        configUpdater.addUpdate("spark.driver.port", boundPort)
-      }
+    val driverConfig = if (isDriver) {
+      Map("spark.driver.host" -> akkaHost, "spark.driver.port" -> boundPort)
+    } else {
+      Map.empty[String, Any]
     }
 
     val classLoader = Thread.currentThread.getContextClassLoader
@@ -199,7 +198,7 @@ object SparkEnv extends Logging {
 
     val connectionManager = blockManager.connectionManager
 
-    val broadcastManager = new BroadcastManager(isDriver, configUpdater)
+    val broadcastManager = new BroadcastManager(isDriver, config)
 
     val cacheManager = new CacheManager(blockManager)
 
@@ -239,8 +238,10 @@ object SparkEnv extends Logging {
         "levels using the RDD.persist() method instead.")
     }
 
+    val mergedConfig = config ++ driverConfig ++ broadcastManager.configUpdates
+
     new SparkEnv(
-      configUpdater.merge(),
+      mergedConfig,
       executorId,
       actorSystem,
       serializerManager,

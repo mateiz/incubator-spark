@@ -25,9 +25,10 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable.{ListBuffer, Map, Set}
 import scala.math
 
+import com.typesafe.config.Config
+
 import org.apache.spark._
 import org.apache.spark.storage.StorageLevel
-import org.apache.spark.util.ConfigUpdater
 import org.apache.spark.util.Utils
 
 
@@ -1052,10 +1053,12 @@ private[spark] class BitTorrentBroadcast[T](@transient var value_ : T, isLocal: 
 private[spark] class BitTorrentBroadcastFactory
 extends BroadcastFactory {
   // TODO(ev): make MultiTracker take a config object
-  def initialize(isDriver: Boolean, config: ConfigUpdater) { MultiTracker.initialize(isDriver) }
+  def initialize(isDriver: Boolean, config: Config) { MultiTracker.initialize(isDriver) }
 
   def newBroadcast[T](value_ : T, isLocal: Boolean, id: Long) =
     new BitTorrentBroadcast[T](value_, isLocal, id)
 
   def stop() { MultiTracker.stop() }
+
+  def configUpdates = Map.empty[String, Any]
 }
