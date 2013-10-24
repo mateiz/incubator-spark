@@ -39,17 +39,20 @@ object ConfigUtils {
    * will override keys on the bottom)
    * 1. System properties
    * 2. config file (could be JSON) defined at URL in system property "spark.config.url", if defined
+   *    Alternatively the environment variable SPARK_CONFIG_URL is also checked.
    * 3. spark-defaults.conf (in classpath / resources)
    */
   def loadConfig(): Config = {
     val properties = ConfigFactory.systemProperties()
     val defaults = ConfigFactory.parseResources(SparkDefaultConf, parseOptions)
-    System.getProperty(SparkConfigUrlProperty) match {
-      case null =>
-        properties.withFallback(defaults)
-      case configUrl =>
+    val configUrl = Option(System.getProperty(SparkConfigUrlProperty))
+                      .orElse(Option(System.getenv("SPARK_CONFIG_URL")))
+    configUrl match {
+      case None =>
+        defaults ++ properties
+      case Some(configUrl) =>
         val javaUrl = new java.net.URL(configUrl)
-        properties.withFallback(ConfigFactory.parseURL(javaUrl, parseOptions)).withFallback(defaults)
+        defaults ++ ConfigFactory.parseURL(javaUrl, parseOptions) ++ properties
     }
   }
 
