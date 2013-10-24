@@ -176,7 +176,7 @@ object MasterFailureTest extends Logging {
     fs.mkdirs(testDir)
 
     // Setup the streaming computation with the given operation
-    var ssc = new StreamingContext("local[4]", "MasterFailureTest", batchDuration, null, Nil, Map())
+    var ssc = new StreamingContext("local[4]", "MasterFailureTest", batchDuration)
     ssc.checkpoint(checkpointDir.toString)
     val inputStream = ssc.textFileStream(testDir.toString)
     val operatedStream = operation(inputStream)

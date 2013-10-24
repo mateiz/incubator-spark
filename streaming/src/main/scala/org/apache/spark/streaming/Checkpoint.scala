@@ -33,7 +33,7 @@ class Checkpoint(@transient ssc: StreamingContext, val checkpointTime: Time)
   extends Logging with Serializable {
   val master = ssc.sc.master
   val framework = ssc.sc.appName
-  val sparkHome = ssc.sc.sparkHome
+  val sparkHome = ssc.sc.getSparkHome.get
   val jars = ssc.sc.jars
   val environment = ssc.sc.environment
   val graph = ssc.graph
@@ -70,7 +70,7 @@ class CheckpointWriter(checkpointDir: String) extends Logging {
 
   private val compressionCodec = CompressionCodec.createCodec()
 
-  // Removed code which validates whether there is only one CheckpointWriter per path 'file' since 
+  // Removed code which validates whether there is only one CheckpointWriter per path 'file' since
   // I did not notice any errors - reintroduce it ?
 
   class CheckpointWriteHandler(checkpointTime: Time, bytes: Array[Byte]) extends Runnable {

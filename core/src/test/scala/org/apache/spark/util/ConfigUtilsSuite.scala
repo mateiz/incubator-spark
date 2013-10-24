@@ -17,7 +17,10 @@
 
 package org.apache.spark.util
 
+import scala.collection.JavaConverters._
+
 import com.typesafe.config.ConfigFactory
+
 import org.scalatest.{FunSuite, BeforeAndAfter}
 
 class ConfigUtilsSuite extends FunSuite with BeforeAndAfter {
@@ -62,5 +65,32 @@ class ConfigUtilsSuite extends FunSuite with BeforeAndAfter {
     ConfigFactory.invalidateCaches()
     val conf2 = ConfigUtils.loadConfig()
     assert(conf2.getInt("spark.driver.port") === 1313)
+  }
+
+  test("configFromJarList") {
+    val jars = Seq("http://abc.co/def.jar", "/path/to/bbb.jar")
+    val config = ConfigUtils.configFromJarList(jars)
+    assert(config.getStringList("spark.jars").asScala === jars)
+  }
+
+  test("configFromEnvironmentMap") {
+    val env = Map("SPARK_CONF_DIR" -> "/etc/spark/conf",
+                  "SPARK_HOME"     -> "/etc/spark")
+    val config = ConfigUtils.configFromEnvironmentMap(env)
+
+    import ConfigUtils._
+    assert(config.getMap("spark.environment") === env)
+  }
+
+  test("can add configurations together") {
+    import ConfigUtils._
+    val jars = Seq("http://abc.co/def.jar", "/path/to/bbb.jar")
+    val config = ConfigUtils.configFromJarList(jars)
+    val config2 = config ++ ConfigUtils.configFromSparkHome("/etc/spark")
+    assert(config2.getStringList("spark.jars").asScala === jars)
+    assert(config2.getString("spark.home") === "/etc/spark")
+
+    val config3 = config2 ++ Map("spark.home" -> "/abc/def")
+    assert(config3.getString("spark.home") === "/abc/def")
   }
 }

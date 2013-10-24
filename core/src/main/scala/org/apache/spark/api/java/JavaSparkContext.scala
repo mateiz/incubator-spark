@@ -33,12 +33,14 @@ import org.apache.spark.SparkContext.IntAccumulatorParam
 import org.apache.spark.SparkContext.DoubleAccumulatorParam
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
+import org.apache.spark.util.ConfigUtils._
 
 /**
  * A Java-friendly version of [[org.apache.spark.SparkContext]] that returns [[org.apache.spark.api.java.JavaRDD]]s and
  * works with Java collections instead of Scala ones.
  */
 class JavaSparkContext(val sc: SparkContext) extends JavaSparkContextVarargsWorkaround {
+
 
   /**
    * @param master Cluster URL to connect to (e.g. mesos://host:port, spark://host:port, local[4]).
@@ -54,7 +56,8 @@ class JavaSparkContext(val sc: SparkContext) extends JavaSparkContextVarargsWork
    *                or an HDFS, HTTP, HTTPS, or FTP URL.
    */
   def this(master: String, appName: String, sparkHome: String, jarFile: String) =
-    this(new SparkContext(master, appName, sparkHome, Seq(jarFile)))
+    this(new SparkContext(master, appName,
+                          configFromSparkHome(sparkHome) ++ configFromJarList(Seq(jarFile))))
 
   /**
    * @param master Cluster URL to connect to (e.g. mesos://host:port, spark://host:port, local[4]).
@@ -64,7 +67,8 @@ class JavaSparkContext(val sc: SparkContext) extends JavaSparkContextVarargsWork
    *             system or HDFS, HTTP, HTTPS, or FTP URLs.
    */
   def this(master: String, appName: String, sparkHome: String, jars: Array[String]) =
-    this(new SparkContext(master, appName, sparkHome, jars.toSeq))
+    this(new SparkContext(master, appName,
+                          configFromSparkHome(sparkHome) ++ configFromJarList(jars.toSeq)))
 
   /**
    * @param master Cluster URL to connect to (e.g. mesos://host:port, spark://host:port, local[4]).
@@ -76,7 +80,9 @@ class JavaSparkContext(val sc: SparkContext) extends JavaSparkContextVarargsWork
    */
   def this(master: String, appName: String, sparkHome: String, jars: Array[String],
       environment: JMap[String, String]) =
-    this(new SparkContext(master, appName, sparkHome, jars.toSeq, environment))
+    this(new SparkContext(master, appName,
+                          configFromSparkHome(sparkHome) ++ configFromJarList(jars.toSeq) ++
+                          configFromEnvironmentMap(environment.toMap)))
 
   private[spark] val env = sc.env
 

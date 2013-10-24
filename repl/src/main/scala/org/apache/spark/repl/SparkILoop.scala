@@ -832,25 +832,22 @@ class SparkILoop(in0: Option[BufferedReader], val out: PrintWriter, val master: 
   var sparkContext: SparkContext = null
 
   def createSparkContext(): SparkContext = {
+    import org.apache.spark.util.ConfigUtils._
+
     val uri = System.getenv("SPARK_EXECUTOR_URI")
     if (uri != null) {
       System.setProperty("spark.executor.uri", uri)
     }
-    val master = this.master match {
-      case Some(m) => m
-      case None => {
-        val prop = System.getenv("MASTER")
-        if (prop != null) prop else "local"
-      }
-    }
+    val master = this.master
+                     .orElse(Option(System.getenv("MASTER")))
+                     .getOrElse("local")
     val jars = Option(System.getenv("ADD_JARS")).map(_.split(','))
                                                 .getOrElse(new Array[String](0))
                                                 .map(new java.io.File(_).getAbsolutePath)
 
-    // Add in classServer URI
-    val classServerConfig = ConfigUtils.configFromMap(Map("spark.repl.class.uri" -> intp.classServer.uri))
-    sparkContext = new SparkContext(master, "Spark shell", System.getenv("SPARK_HOME"), jars,
-                                    config = classServerConfig)
+    sparkContext = new SparkContext(master, "Spark shell",
+                                    configFromJarList(jars) +
+                                    ("spark.repl.class.uri" -> intp.classServer.uri))
     sparkContext
   }
 

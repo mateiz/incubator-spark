@@ -230,7 +230,8 @@ class DistributedSuite extends FunSuite with ShouldMatchers with BeforeAndAfter
   }
 
   test("passing environment variables to cluster") {
-    sc = new SparkContext(clusterUrl, "test", null, Nil, Map("TEST_VAR" -> "TEST_VALUE"))
+    import org.apache.spark.util.ConfigUtils._
+    sc = new SparkContext(clusterUrl, "test", configFromEnvironmentMap(Map("TEST_VAR" -> "TEST_VALUE")))
     val values = sc.parallelize(1 to 2, 2).map(x => System.getenv("TEST_VAR")).collect()
     assert(values.toSeq === Seq("TEST_VALUE", "TEST_VALUE"))
   }

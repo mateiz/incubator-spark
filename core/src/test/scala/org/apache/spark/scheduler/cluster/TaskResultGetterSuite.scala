@@ -67,7 +67,7 @@ class TaskResultGetterSuite extends FunSuite with BeforeAndAfter
   before {
     // Use local-cluster mode because results are returned differently when running with the
     // LocalScheduler.
-    sc = new SparkContext("local-cluster[1,1,512]", "test", config = testConfig)
+    sc = new SparkContext("local-cluster[1,1,512]", "test", testConfig)
   }
 
   test("handling results smaller than Akka frame size") {

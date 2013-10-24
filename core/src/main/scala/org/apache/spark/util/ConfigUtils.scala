@@ -54,6 +54,22 @@ object ConfigUtils {
   }
 
   implicit def config2RichConfig(config: Config): RichConfig = new RichConfig(config)
+
+  /** Creates a Config from Spark master and appName strings */
+  def configFromMasterAppName(master: String, appName: String): Config =
+    configFromMap(Map("spark.master" -> master, "spark.appName" -> appName))
+
+  /** Creates a Config from the spark home variable */
+  def configFromSparkHome(sparkHome: String): Config =
+    configFromMap(Map("spark.home" -> sparkHome))
+
+  /** Creates a Config from a list of jar URLs */
+  def configFromJarList(jars: Seq[String]): Config =
+    configFromMap(Map("spark.jars" -> jars.asJava))
+
+  /** Creates a Config from a map of environment strings */
+  def configFromEnvironmentMap(environment: collection.Map[String, String]): Config =
+    configFromMap(environment).atPath("spark.environment")
 }
 
 /**
@@ -65,4 +81,12 @@ class RichConfig(config: Config) {
 
   /** config + ("some.key" -> value) */
   def +(keyValue: (String, Any)): Config = ++(Map(keyValue))
+
+  /** Reads all the subkeys under a key, assumed to be a JSON object / map, and returns their values
+   *  as a map of (subkey) -> value.toString
+   */
+  def getMap(key: String): Map[String, String] = {
+    val entries = config.getObject(key).entrySet.asScala
+    entries.map { entry => entry.getKey -> entry.getValue.unwrapped.toString }.toMap
+  }
 }
