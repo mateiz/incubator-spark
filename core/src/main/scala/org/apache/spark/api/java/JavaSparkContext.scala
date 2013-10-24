@@ -27,6 +27,7 @@ import org.apache.hadoop.mapred.InputFormat
 import org.apache.hadoop.mapred.JobConf
 import org.apache.hadoop.mapreduce.{InputFormat => NewInputFormat}
 import com.google.common.base.Optional
+import com.typesafe.config.Config
 
 import org.apache.spark.{Accumulable, AccumulableParam, Accumulator, AccumulatorParam, SparkContext}
 import org.apache.spark.SparkContext.IntAccumulatorParam
@@ -41,6 +42,17 @@ import org.apache.spark.util.ConfigUtils._
  */
 class JavaSparkContext(val sc: SparkContext) extends JavaSparkContextVarargsWorkaround {
 
+  /**
+   * @param config A Typesafe Config object to use to configure the SparkContext
+   */
+  def this(config: Config) = this(new SparkContext(config))
+
+  /**
+   * @param master Cluster URL to connect to (e.g. mesos://host:port, spark://host:port, local[4]).
+   * @param appName A name for your application, to display on the cluster web UI
+   * @param config A Typesafe Config object for supplying extra configuration
+   */
+  def this(master: String, appName: String, config: Config) = this(new SparkContext(master, appName, config))
 
   /**
    * @param master Cluster URL to connect to (e.g. mesos://host:port, spark://host:port, local[4]).
