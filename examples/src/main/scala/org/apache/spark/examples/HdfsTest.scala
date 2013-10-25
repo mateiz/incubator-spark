@@ -19,10 +19,9 @@ package org.apache.spark.examples
 
 import org.apache.spark._
 
-object HdfsTest {
+object HdfsTest extends ExampleApp {
   def main(args: Array[String]) {
-    val sc = new SparkContext(args(0), "HdfsTest",
-      System.getenv("SPARK_HOME"), Seq(System.getenv("SPARK_EXAMPLES_JAR")))
+    val sc = createContext(args(0), "HdfsTest")
     val file = sc.textFile(args(1))
     val mapped = file.map(s => s.length).cache()
     for (iter <- 1 to 10) {

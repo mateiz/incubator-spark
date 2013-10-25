@@ -29,7 +29,7 @@ import org.apache.spark.streaming.Seconds
 import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.StreamingContext.toPairDStreamFunctions
 import org.apache.spark.streaming.receivers.Receiver
-import org.apache.spark.util.AkkaUtils
+import org.apache.spark.util.{AkkaUtils, ConfigUtils}
 
 case class SubscribeReceiver(receiverActor: ActorRef)
 case class UnsubscribeReceiver(receiverActor: ActorRef)
@@ -124,6 +124,10 @@ object FeederActor {
   }
 }
 
+object ExampleConfig {
+  def jarConfig = ConfigUtils.configFromJarList(Seq(System.getenv("SPARK_EXAMPLES_JAR")))
+}
+
 /**
  * A sample word count program demonstrating the use of plugging in
  * Actor as Receiver
@@ -148,8 +152,7 @@ object ActorWordCount {
     val Seq(master, host, port) = args.toSeq
 
     // Create the context and set the batch size
-    val ssc = new StreamingContext(master, "ActorWordCount", Seconds(2),
-      System.getenv("SPARK_HOME"), Seq(System.getenv("SPARK_EXAMPLES_JAR")))
+    val ssc = new StreamingContext(master, "ActorWordCount", Seconds(2), ExampleConfig.jarConfig)
 
     /*
      * Following is the use of actorStream to plug in custom actor as receiver

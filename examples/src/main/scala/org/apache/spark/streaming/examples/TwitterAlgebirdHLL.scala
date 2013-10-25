@@ -48,8 +48,7 @@ object TwitterAlgebirdHLL {
     val BIT_SIZE = 12
     val (master, filters) = (args.head, args.tail)
 
-    val ssc = new StreamingContext(master, "TwitterAlgebirdHLL", Seconds(5),
-      System.getenv("SPARK_HOME"), Seq(System.getenv("SPARK_EXAMPLES_JAR")))
+    val ssc = new StreamingContext(master, "TwitterAlgebirdHLL", Seconds(5), ExampleConfig.jarConfig)
     val stream = ssc.twitterStream(None, filters, StorageLevel.MEMORY_ONLY_SER)
 
     val users = stream.map(status => status.getUser.getId)

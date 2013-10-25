@@ -26,7 +26,7 @@ import org.apache.spark._
 /**
  * Alternating least squares matrix factorization.
  */
-object SparkALS {
+object SparkALS extends ExampleApp {
   // Parameters set through command line arguments
   var M = 0 // Number of movies
   var U = 0 // Number of users
@@ -111,9 +111,8 @@ object SparkALS {
     }
     printf("Running with M=%d, U=%d, F=%d, iters=%d\n", M, U, F, ITERATIONS)
 
-    val sc = new SparkContext(host, "SparkALS",
-      System.getenv("SPARK_HOME"), Seq(System.getenv("SPARK_EXAMPLES_JAR")))
-    
+    val sc = createContext(host, "SparkALS")
+
     val R = generateR()
 
     // Initialize m and u randomly
