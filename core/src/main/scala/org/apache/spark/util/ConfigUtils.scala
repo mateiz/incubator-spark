@@ -19,6 +19,7 @@ package org.apache.spark.util
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable.HashMap
+import scala.collection.{Map => AnyMap}
 
 import com.typesafe.config.{Config, ConfigFactory, ConfigParseOptions}
 
@@ -26,7 +27,7 @@ import com.typesafe.config.{Config, ConfigFactory, ConfigParseOptions}
  * Methods and implicits for convenience in working with Typesafe Config objects
  */
 object ConfigUtils {
-  def configFromMap(map: collection.Map[String, _]): Config = ConfigFactory.parseMap(map.asJava)
+  def configFromMap(map: AnyMap[String, _]): Config = ConfigFactory.parseMap(map.asJava)
 
   val SparkDefaultConf = "org/apache/spark/spark-defaults.conf"
   val SparkConfigUrlProperty = "spark.config.url"
@@ -71,7 +72,7 @@ object ConfigUtils {
     configFromMap(Map("spark.jars" -> jars.asJava))
 
   /** Creates a Config from a map of environment strings */
-  def configFromEnvironmentMap(environment: collection.Map[String, String]): Config =
+  def configFromEnvironmentMap(environment: AnyMap[String, String]): Config =
     configFromMap(environment).atPath("spark.environment")
 }
 
@@ -80,7 +81,7 @@ object ConfigUtils {
  */
 class RichConfig(config: Config) {
   def ++(other: Config): Config = other.withFallback(config)
-  def ++(map: collection.Map[String, _]): Config = ConfigUtils.configFromMap(map).withFallback(config)
+  def ++(map: AnyMap[String, _]): Config = ConfigUtils.configFromMap(map).withFallback(config)
 
   /** config + ("some.key" -> value) */
   def +(keyValue: (String, Any)): Config = ++(Map(keyValue))

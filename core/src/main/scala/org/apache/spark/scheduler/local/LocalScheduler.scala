@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 
 import akka.actor._
+import com.typesafe.config.ConfigFactory
 
 import org.apache.spark._
 import org.apache.spark.TaskState.TaskState
@@ -50,7 +51,7 @@ private[spark]
 class LocalActor(localScheduler: LocalScheduler, private var freeCores: Int)
   extends Actor with Logging {
 
-  val executor = new Executor("localhost", "localhost", Seq.empty, isLocal = true)
+  val executor = new Executor("localhost", "localhost", ConfigFactory.empty, isLocal = true)
 
   def receive = {
     case LocalReviveOffers =>
