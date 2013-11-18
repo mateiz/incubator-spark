@@ -88,8 +88,6 @@ class ReplSuite extends FunSuite {
     assert(out.toString.contains("someValue"))
 
     interp.sparkContext.stop()
-    System.clearProperty("spark.driver.port")
-    System.clearProperty("spark.hostPort")
   }
 
   test ("simple foreach with accumulator") {
