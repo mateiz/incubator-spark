@@ -168,11 +168,13 @@ private object TorrentBroadcast
 extends Logging {
 
   private var initialized = false
+  private var _config: Config = _
 
-  def initialize(_isDriver: Boolean) {
+  def initialize(_isDriver: Boolean, config: Config) {
     synchronized {
       if (!initialized) {
         initialized = true
+        _config = config
       }
     }
   }
@@ -181,7 +183,7 @@ extends Logging {
     initialized = false
   }
 
-  val BLOCK_SIZE = System.getProperty("spark.broadcast.blockSize", "4096").toInt * 1024
+  lazy val BLOCK_SIZE = _config.getInt("spark.broadcast.blockSize") * 1024
 
   def blockifyObject[T](obj: T): TorrentInfo = {
     val byteArray = Utils.serialize[T](obj)
@@ -240,7 +242,7 @@ private[spark] case class TorrentInfo(
 private[spark] class TorrentBroadcastFactory
   extends BroadcastFactory {
     // TODO(ev): make TorrentBroadcast take a config object
-  def initialize(isDriver: Boolean, config: Config) { TorrentBroadcast.initialize(isDriver) }
+  def initialize(isDriver: Boolean, config: Config) { TorrentBroadcast.initialize(isDriver, config) }
 
   def newBroadcast[T](value_ : T, isLocal: Boolean, id: Long) =
     new TorrentBroadcast[T](value_, isLocal, id)
