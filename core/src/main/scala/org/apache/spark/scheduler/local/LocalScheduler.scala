@@ -23,7 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 
 import akka.actor._
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.Config
 
 import org.apache.spark._
 import org.apache.spark.TaskState.TaskState
@@ -48,10 +48,10 @@ private[local]
 case class KillTask(taskId: Long)
 
 private[spark]
-class LocalActor(localScheduler: LocalScheduler, private var freeCores: Int)
+class LocalActor(localScheduler: LocalScheduler, config: Config, private var freeCores: Int)
   extends Actor with Logging {
 
-  val executor = new Executor("localhost", "localhost", ConfigFactory.empty, isLocal = true)
+  val executor = new Executor("localhost", "localhost", config, isLocal = true)
 
   def receive = {
     case LocalReviveOffers =>
@@ -112,7 +112,7 @@ private[spark] class LocalScheduler(threads: Int, val maxFailures: Int, val sc: 
     }
     schedulableBuilder.buildPools()
 
-    localActor = env.actorSystem.actorOf(Props(new LocalActor(this, threads)), "Test")
+    localActor = env.actorSystem.actorOf(Props(new LocalActor(this, env.conf, threads)), "Test")
   }
 
   override def setDAGScheduler(dagScheduler: DAGScheduler) {

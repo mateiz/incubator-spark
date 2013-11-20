@@ -310,7 +310,9 @@ private[spark] class Executor(
             System.exit(1)
             null
         }
-      case _ => parent
+      case _ =>
+        logWarning("FAILED to pick up spark.repl.class.uri from configuration, spark shell may not work")
+        parent
     }
   }
 
