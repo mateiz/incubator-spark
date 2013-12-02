@@ -115,31 +115,7 @@ class DAGScheduler(
   // Warns the user if a stage contains a task with size greater than this value (in KB)
   val TASK_SIZE_TO_WARN = 100
 
-  private val eventProcessActor: ActorRef = env.actorSystem.actorOf(Props(new Actor {
-    override def preStart() {
-      import context.dispatcher
-      context.system.scheduler.schedule(RESUBMIT_TIMEOUT, RESUBMIT_TIMEOUT) {
-        if (failed.size > 0) {
-          resubmitFailedStages()
-        }
-      }
-    }
-
-    /**
-     * The main event loop of the DAG scheduler, which waits for new-job / task-finished / failure
-     * events and responds by launching tasks. This runs in a dedicated thread and receives events
-     * via the eventQueue.
-     */
-    def receive = {
-      case event: DAGSchedulerEvent =>
-        logDebug("Got event of type " + event.getClass.getName)
-
-        if (!processEvent(event))
-          submitWaitingStages()
-        else
-          context.stop(self)
-    }
-  }))
+  private var eventProcessActor: ActorRef = _
 
   private[scheduler] val nextJobId = new AtomicInteger(0)
 
@@ -179,6 +155,57 @@ class DAGScheduler(
   val resultStageToJob = new HashMap[Stage, ActiveJob]
 
   val metadataCleaner = new MetadataCleaner(MetadataCleanerType.DAG_SCHEDULER, this.cleanup)
+
+  /**
+   * Starts the event processing actor.  The actor has two responsibilities:
+   *
+   * 1. Waits for events like job submission, task finished, task failure etc., and calls
+   *    [[org.apache.spark.scheduler.DAGScheduler.processEvent()]] to process them.
+   * 2. Schedules a periodical task to resubmit failed stages.
+   *
+   * NOTE: the actor cannot be started in the constructor, because the periodical task references
+   * some internal states of the enclosing [[org.apache.spark.scheduler.DAGScheduler]] object, thus
+   * cannot be scheduled until the [[org.apache.spark.scheduler.DAGScheduler]] is fully constructed.
+   */
+  def start() {
+    eventProcessActor = env.actorSystem.actorOf(Props(new Actor {
+      /**
+       * A handle to the periodical task, used to cancel the task when the actor is stopped.
+       */
+      var resubmissionTask: Cancellable = _
+
+      override def preStart() {
+        import context.dispatcher
+        /**
+         * A message is sent to the actor itself periodically to remind the actor to resubmit failed
+         * stages.  In this way, stage resubmission can be done within the same thread context of
+         * other event processing logic to avoid unnecessary synchronization overhead.
+         */
+        resubmissionTask = context.system.scheduler.schedule(
+          RESUBMIT_TIMEOUT, RESUBMIT_TIMEOUT, self, ResubmitFailedStages)
+      }
+
+      /**
+       * The main event loop of the DAG scheduler.
+       */
+      def receive = {
+        case event: DAGSchedulerEvent =>
+          logDebug("Got event of type " + event.getClass.getName)
+
+          /**
+           * All events are forwarded to `processEvent()`, so that the event processing logic can
+           * easily tested without starting a dedicated actor.  Please refer to `DAGSchedulerSuite`
+           * for details.
+           */
+          if (!processEvent(event)) {
+            submitWaitingStages()
+          } else {
+            resubmissionTask.cancel()
+            context.stop(self)
+          }
+      }
+    }))
+  }
 
   def addSparkListener(listener: SparkListener) {
     listenerBus.addListener(listener)
@@ -381,13 +408,25 @@ class DAGScheduler(
   }
 
   /**
-   * Process one event retrieved from the event queue.
-   * Returns true if we should stop the event loop.
+   * Process one event retrieved from the event processing actor.
+   *
+   * @param event The event to be processed.
+   * @return `true` if we should stop the event loop.
    */
   private[scheduler] def processEvent(event: DAGSchedulerEvent): Boolean = {
     event match {
       case JobSubmitted(jobId, rdd, func, partitions, allowLocal, callSite, listener, properties) =>
-        val finalStage = newStage(rdd, partitions.size, None, jobId, Some(callSite))
+        var finalStage: Stage = null
+        try {
+          // New stage creation at times and if its not protected, the scheduler thread is killed. 
+          // e.g. it can fail when jobs are run on HadoopRDD whose underlying hdfs files have been deleted
+          finalStage = newStage(rdd, partitions.size, None, jobId, Some(callSite))
+        } catch {
+          case e: Exception =>
+            logWarning("Creating new stage failed due to exception - job: " + jobId, e)
+            listener.jobFailed(e)
+            return false
+        }
         val job = new ActiveJob(jobId, finalStage, func, partitions, callSite, listener, properties)
         clearCacheLocs()
         logInfo("Got job " + job.jobId + " (" + callSite + ") with " + partitions.length +
@@ -459,6 +498,11 @@ class DAGScheduler(
 
       case TaskSetFailed(taskSet, reason) =>
         abortStage(stageIdToStage(taskSet.stageId), reason)
+
+      case ResubmitFailedStages =>
+        if (failed.size > 0) {
+          resubmitFailedStages()
+        }
 
       case StopDAGScheduler =>
         // Cancel any active jobs
@@ -903,7 +947,9 @@ class DAGScheduler(
   }
 
   def stop() {
-    eventProcessActor ! StopDAGScheduler
+    if (eventProcessActor != null) {
+      eventProcessActor ! StopDAGScheduler
+    }
     metadataCleaner.cancel()
     taskSched.stop()
   }
