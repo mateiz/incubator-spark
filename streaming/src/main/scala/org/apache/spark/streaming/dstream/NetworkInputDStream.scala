@@ -175,10 +175,11 @@ abstract class NetworkReceiver[T: ClassTag]() extends Serializable with Logging 
   /** A helper actor that communicates with the NetworkInputTracker */
   private class NetworkReceiverActor extends Actor {
     logInfo("Attempting to register with tracker")
-    val ip = System.getProperty("spark.driver.host", "localhost")
-    val port = System.getProperty("spark.driver.port", "7077").toInt
+    // Both the driver host and port are always set by SparkContext in the config
+    val ip = env.conf.getString("spark.driver.host")
+    val port = env.conf.getInt("spark.driver.port")
     val url = "akka.tcp://spark@%s:%s/user/NetworkInputTracker".format(ip, port)
-    val tracker = env.actorSystem.actorSelection(url)
+    val tracker = env.actorSystem.actorFor(url)
     val timeout = 5.seconds
 
     override def preStart() {

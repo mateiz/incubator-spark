@@ -17,11 +17,13 @@
 
 package org.apache.spark.util
 
-import akka.actor.{ActorSystem, ExtendedActorSystem}
-import com.typesafe.config.ConfigFactory
-import scala.concurrent.duration._
 import scala.concurrent.Await
+import scala.concurrent.duration._
+
+import akka.actor.{ActorSystem, ExtendedActorSystem}
 import akka.remote.RemoteActorRefProvider
+
+import com.typesafe.config.{Config, ConfigFactory}
 
 /**
  * Various utility classes for working with Akka.
@@ -35,15 +37,13 @@ private[spark] object AkkaUtils {
    * Note: the `name` parameter is important, as even if a client sends a message to right
    * host + port, if the system name is incorrect, Akka will drop the message.
    */
-  def createActorSystem(name: String, host: String, port: Int): (ActorSystem, Int) = {
-    val akkaThreads   = System.getProperty("spark.akka.threads", "4").toInt
-    val akkaBatchSize = System.getProperty("spark.akka.batchSize", "15").toInt
-
-    val akkaTimeout = System.getProperty("spark.akka.timeout", "100").toInt
-
-    val akkaFrameSize = System.getProperty("spark.akka.frameSize", "10").toInt
-    val lifecycleEvents = if (System.getProperty("spark.akka.logLifecycleEvents", "false").toBoolean) "on" else "off"
-
+  def createActorSystem(name: String, host: String, port: Int, 
+    config: Config = ConfigUtils.loadConfig()): (ActorSystem, Int) = {
+    val akkaThreads = config.getInt("spark.akka.threads")
+    val akkaBatchSize = config.getInt("spark.akka.batchSize")
+    val akkaTimeout = config.getInt("spark.akka.timeout")
+    val akkaFrameSize = config.getInt("spark.akka.frameSize")
+    val lifecycleEvents = if (config.getBoolean("spark.akka.logLifecycleEvents")) "on" else "off"
     val akkaHeartBeatPauses = System.getProperty("spark.akka.heartbeat.pauses", "600").toInt
     val akkaFailureDetector =
       System.getProperty("spark.akka.failure-detector.threshold", "300.0").toDouble
@@ -69,8 +69,7 @@ private[spark] object AkkaUtils {
       |akka.actor.default-dispatcher.throughput = $akkaBatchSize
       |akka.remote.log-remote-lifecycle-events = $lifecycleEvents
       """.stripMargin)
-
-    val actorSystem = ActorSystem(name, akkaConf)
+    val actorSystem = ActorSystem(name, akkaConf.withFallback(config))
 
     val provider = actorSystem.asInstanceOf[ExtendedActorSystem].provider
     val boundPort = provider.getDefaultAddress.port.get

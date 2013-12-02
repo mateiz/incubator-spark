@@ -83,7 +83,6 @@ class ALSSuite extends FunSuite with BeforeAndAfterAll {
 
   override def afterAll() {
     sc.stop()
-    System.clearProperty("spark.driver.port")
   }
 
   test("rank-1 matrices") {

@@ -40,6 +40,9 @@ import org.apache.spark.api.java.{JavaPairRDD, JavaSparkContext, JavaRDD}
 import org.apache.spark.streaming._
 import org.apache.spark.streaming.dstream._
 
+import org.apache.spark.streaming.receivers.{ActorReceiver, ReceiverSupervisorStrategy}
+import org.apache.spark.util.ConfigUtils._
+
 /**
  * A StreamingContext is the main entry point for Spark Streaming functionality. Besides the basic
  * information (such as, cluster URL and job name) to internally create a SparkContext, it provides
@@ -59,7 +62,7 @@ class JavaStreamingContext(val ssc: StreamingContext) {
    * @param batchDuration The time interval at which streaming data will be divided into batches
    */
   def this(master: String, appName: String, batchDuration: Duration) =
-    this(new StreamingContext(master, appName, batchDuration, null, Nil, Map()))
+    this(new StreamingContext(master, appName, batchDuration))
 
   /**
    * Creates a StreamingContext.
@@ -76,7 +79,8 @@ class JavaStreamingContext(val ssc: StreamingContext) {
       batchDuration: Duration,
       sparkHome: String,
       jarFile: String) =
-    this(new StreamingContext(master, appName, batchDuration, sparkHome, Seq(jarFile), Map()))
+    this(new StreamingContext(master, appName, batchDuration,
+                              configFromSparkHome(sparkHome) ++ configFromJarList(Seq(jarFile))))
 
   /**
    * Creates a StreamingContext.
@@ -93,7 +97,8 @@ class JavaStreamingContext(val ssc: StreamingContext) {
       batchDuration: Duration,
       sparkHome: String,
       jars: Array[String]) =
-    this(new StreamingContext(master, appName, batchDuration, sparkHome, jars, Map()))
+    this(new StreamingContext(master, appName, batchDuration,
+                              configFromSparkHome(sparkHome) ++ configFromJarList(jars)))
 
   /**
    * Creates a StreamingContext.
@@ -112,7 +117,9 @@ class JavaStreamingContext(val ssc: StreamingContext) {
     sparkHome: String,
     jars: Array[String],
     environment: JMap[String, String]) =
-    this(new StreamingContext(master, appName, batchDuration, sparkHome, jars, environment))
+    this(new StreamingContext(master, appName, batchDuration,
+                              configFromSparkHome(sparkHome) ++ configFromJarList(jars) ++
+                              configFromEnvironmentMap(environment.toMap)))
 
   /**
    * Creates a StreamingContext using an existing SparkContext.

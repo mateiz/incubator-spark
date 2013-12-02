@@ -22,14 +22,13 @@ import org.apache.spark._
 import SparkContext._
 
 /** Computes an approximation to pi */
-object SparkPi {
+object SparkPi extends ExampleApp {
   def main(args: Array[String]) {
     if (args.length == 0) {
       System.err.println("Usage: SparkPi <master> [<slices>]")
       System.exit(1)
     }
-    val spark = new SparkContext(args(0), "SparkPi",
-      System.getenv("SPARK_HOME"), Seq(System.getenv("SPARK_EXAMPLES_JAR")))
+    val spark = createContext(args(0), "SparkPi")
     val slices = if (args.length > 1) args(1).toInt else 2
     val n = 100000 * slices
     val count = spark.parallelize(1 to n, slices).map { i =>

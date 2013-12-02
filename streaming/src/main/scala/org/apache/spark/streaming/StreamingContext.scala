@@ -30,6 +30,7 @@ import org.apache.spark.streaming.receivers.ReceiverSupervisorStrategy
 import org.apache.spark.streaming.receivers.ZeroMQReceiver
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.util.MetadataCleaner
+import org.apache.spark.util.ConfigUtils._
 import org.apache.spark.streaming.receivers.ActorReceiver
 
 import scala.collection.mutable.Queue
@@ -47,7 +48,9 @@ import org.apache.hadoop.mapreduce.lib.input.TextInputFormat
 import org.apache.hadoop.fs.Path
 import twitter4j.Status
 import twitter4j.auth.Authorization
+
 import akka.util.ByteString
+import com.typesafe.config.{Config, ConfigFactory}
 
 
 /**
@@ -80,10 +83,8 @@ class StreamingContext private (
       master: String,
       appName: String,
       batchDuration: Duration,
-      sparkHome: String = null,
-      jars: Seq[String] = Nil,
-      environment: Map[String, String] = Map()) = {
-    this(StreamingContext.createNewSparkContext(master, appName, sparkHome, jars, environment),
+      extraConfig: Config = ConfigFactory.empty) = {
+    this(StreamingContext.createNewSparkContext(master, appName, extraConfig),
          null, batchDuration)
   }
 
@@ -115,7 +116,10 @@ class StreamingContext private (
 
   protected[streaming] val sc: SparkContext = {
     if (isCheckpointPresent) {
-      new SparkContext(cp_.master, cp_.framework, cp_.sparkHome, cp_.jars, cp_.environment)
+      new SparkContext(cp_.master, cp_.framework,
+                       configFromSparkHome(cp_.sparkHome) ++
+                       configFromJarList(cp_.jars) ++
+                       configFromEnvironmentMap(cp_.environment))
     } else {
       sc_
     }
@@ -577,15 +581,13 @@ object StreamingContext {
   protected[streaming] def createNewSparkContext(
       master: String,
       appName: String,
-      sparkHome: String,
-      jars: Seq[String],
-      environment: Map[String, String]): SparkContext = {
+      extraConfig: Config): SparkContext = {
     // Set the default cleaner delay to an hour if not already set.
     // This should be sufficient for even 1 second interval.
     if (MetadataCleaner.getDelaySeconds < 0) {
       MetadataCleaner.setDelaySeconds(3600)
     }
-    new SparkContext(master, appName, sparkHome, jars, environment)
+    new SparkContext(master, appName, extraConfig)
   }
 
   protected[streaming] def rddToFileName[T](prefix: String, suffix: String, time: Time): String = {

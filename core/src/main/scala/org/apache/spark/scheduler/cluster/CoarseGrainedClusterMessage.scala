@@ -19,6 +19,8 @@ package org.apache.spark.scheduler.cluster
 
 import java.nio.ByteBuffer
 
+import com.typesafe.config.Config
+
 import org.apache.spark.TaskState.TaskState
 import org.apache.spark.scheduler.TaskDescription
 import org.apache.spark.util.{Utils, SerializableBuffer}
@@ -33,8 +35,7 @@ private[spark] object CoarseGrainedClusterMessages {
 
   case class KillTask(taskId: Long, executor: String) extends CoarseGrainedClusterMessage
 
-  case class RegisteredExecutor(sparkProperties: Seq[(String, String)])
-    extends CoarseGrainedClusterMessage
+  case class RegisteredExecutor(sparkConfig: Config) extends CoarseGrainedClusterMessage
 
   case class RegisterExecutorFailed(message: String) extends CoarseGrainedClusterMessage
 

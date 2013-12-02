@@ -24,6 +24,9 @@ import java.util.concurrent._
 
 import scala.collection.JavaConversions._
 import scala.collection.mutable.HashMap
+import scala.util.{Try, Success}
+
+import com.typesafe.config.Config
 
 import org.apache.spark._
 import org.apache.spark.deploy.SparkHadoopUtil
@@ -37,7 +40,7 @@ import org.apache.spark.util.Utils
 private[spark] class Executor(
     executorId: String,
     slaveHostname: String,
-    properties: Seq[(String, String)],
+    config: Config,
     isLocal: Boolean = false)
   extends Logging
 {
@@ -57,11 +60,6 @@ private[spark] class Executor(
 
   // Make sure the local hostname we report matches the cluster scheduler's name for this host
   Utils.setCustomHostname(slaveHostname)
-
-  // Set spark.* system properties from executor arg
-  for ((key, value) <- properties) {
-    System.setProperty(key, value)
-  }
 
   // If we are in yarn mode, systems can have different disk layouts so we must set it
   // to what Yarn on this system said was available. This will be used later when SparkEnv
@@ -105,11 +103,10 @@ private[spark] class Executor(
 
   val executorSource = new ExecutorSource(this, executorId)
 
-  // Initialize Spark environment (using system properties read above)
+  // Initialize Spark environment (using passed in config)
   private val env = {
     if (!isLocal) {
-      val _env = SparkEnv.createFromSystemProperties(executorId, slaveHostname, 0,
-        isDriver = false, isLocal = false)
+      val _env = SparkEnv.createFromConfig(executorId, config, (slaveHostname, 0), false, false)
       SparkEnv.set(_env)
       _env.metricsSystem.registerSource(executorSource)
       _env
@@ -299,22 +296,23 @@ private[spark] class Executor(
    * new classes defined by the REPL as the user types code
    */
   private def addReplClassLoaderIfNeeded(parent: ClassLoader): ClassLoader = {
-    val classUri = System.getProperty("spark.repl.class.uri")
-    if (classUri != null) {
-      logInfo("Using REPL class URI: " + classUri)
-      try {
-        val klass = Class.forName("org.apache.spark.repl.ExecutorClassLoader")
-          .asInstanceOf[Class[_ <: ClassLoader]]
-        val constructor = klass.getConstructor(classOf[String], classOf[ClassLoader])
-        constructor.newInstance(classUri, parent)
-      } catch {
-        case _: ClassNotFoundException =>
-          logError("Could not find org.apache.spark.repl.ExecutorClassLoader on classpath!")
-          System.exit(1)
-          null
-      }
-    } else {
-      parent
+    Try(config.getString("spark.repl.class.uri")) match {
+      case Success(classUri) =>
+        logInfo("Using REPL class URI: " + classUri)
+        try {
+          val klass = Class.forName("org.apache.spark.repl.ExecutorClassLoader")
+            .asInstanceOf[Class[_ <: ClassLoader]]
+          val constructor = klass.getConstructor(classOf[String], classOf[ClassLoader])
+          constructor.newInstance(classUri, parent)
+        } catch {
+          case _: ClassNotFoundException =>
+            logError("Could not find org.apache.spark.repl.ExecutorClassLoader on classpath!")
+            System.exit(1)
+            null
+        }
+      case _ =>
+        logWarning("FAILED to pick up spark.repl.class.uri from configuration, spark shell may not work")
+        parent
     }
   }
 

@@ -124,11 +124,10 @@ private[spark] class MapOutputTracker extends Logging {
       if (fetchedStatuses == null) {
         // We won the race to fetch the output locs; do so
         logInfo("Doing the fetch; tracker actor = " + trackerActor)
-        val hostPort = Utils.localHostPort()
         // This try-finally prevents hangs due to timeouts:
         try {
           val fetchedBytes =
-            askTracker(GetMapOutputStatuses(shuffleId, hostPort)).asInstanceOf[Array[Byte]]
+            askTracker(GetMapOutputStatuses(shuffleId, Utils.localHostName())).asInstanceOf[Array[Byte]]
           fetchedStatuses = MapOutputTracker.deserializeMapStatuses(fetchedBytes)
           logInfo("Got the output locations")
           mapStatuses.put(shuffleId, fetchedStatuses)

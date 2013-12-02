@@ -177,9 +177,7 @@ object MasterFailureTest extends Logging {
     fs.mkdirs(testDir)
 
     // Setup the streaming computation with the given operation
-    System.clearProperty("spark.driver.port")
-    System.clearProperty("spark.hostPort")
-    var ssc = new StreamingContext("local[4]", "MasterFailureTest", batchDuration, null, Nil, Map())
+    var ssc = new StreamingContext("local[4]", "MasterFailureTest", batchDuration)
     ssc.checkpoint(checkpointDir.toString)
     val inputStream = ssc.textFileStream(testDir.toString)
     val operatedStream = operation(inputStream)
@@ -224,8 +222,6 @@ object MasterFailureTest extends Logging {
         // (ii) The last expected output has not been generated yet
         // (iii) Its not timed out yet
         System.clearProperty("spark.streaming.clock")
-        System.clearProperty("spark.driver.port")
-        System.clearProperty("spark.hostPort")
         ssc.start()
         val startTime = System.currentTimeMillis()
         while (!killed && !isLastOutputGenerated && !isTimedOut) {

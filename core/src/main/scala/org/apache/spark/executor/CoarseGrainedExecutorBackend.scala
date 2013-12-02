@@ -49,10 +49,11 @@ private[spark] class CoarseGrainedExecutorBackend(
   }
 
   override def receive = {
-    case RegisteredExecutor(sparkProperties) =>
+    case RegisteredExecutor(sparkConfig) =>
       logInfo("Successfully registered with driver")
+      logInfo("Configuration: \n" + sparkConfig.root.render)
       // Make this host instead of hostPort ?
-      executor = new Executor(executorId, Utils.parseHostPort(hostPort)._1, sparkProperties)
+      executor = new Executor(executorId, Utils.parseHostPort(hostPort)._1, sparkConfig)
 
     case RegisterExecutorFailed(message) =>
       logError("Slave registration failed: " + message)
@@ -100,7 +101,6 @@ private[spark] object CoarseGrainedExecutorBackend {
     val (actorSystem, boundPort) = AkkaUtils.createActorSystem("sparkExecutor", hostname, 0)
     // set it
     val sparkHostPort = hostname + ":" + boundPort
-    System.setProperty("spark.hostPort", sparkHostPort)
     actorSystem.actorOf(
       Props(classOf[CoarseGrainedExecutorBackend], driverUrl, executorId, sparkHostPort, cores),
       name = "Executor")

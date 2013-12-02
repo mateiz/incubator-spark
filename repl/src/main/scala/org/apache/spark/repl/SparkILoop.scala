@@ -36,6 +36,7 @@ import scala.reflect.api.{Mirror, TypeCreator, Universe => ApiUniverse}
 
 import org.apache.spark.Logging
 import org.apache.spark.SparkContext
+import org.apache.spark.util.ConfigUtils
 
 /** The Scala interactive shell.  It provides a read-eval-print loop
  *  around the Interpreter class.
@@ -56,6 +57,7 @@ class SparkILoop(in0: Option[BufferedReader], protected val out: JPrintWriter,
                    with SparkILoopInit
                    with Logging
 {
+
   def this(in0: BufferedReader, out: JPrintWriter, master: String) = this(Some(in0), out, Some(master))
   def this(in0: BufferedReader, out: JPrintWriter) = this(Some(in0), out, None)
   def this() = this(None, new JPrintWriter(Console.out, true), None)
@@ -100,6 +102,7 @@ class SparkILoop(in0: Option[BufferedReader], protected val out: JPrintWriter,
       }
     }
   }
+
   implicit def stabilizeIMain(intp: SparkIMain) = new IMainOps[intp.type](intp)
 
   /** TODO -
@@ -124,6 +127,7 @@ class SparkILoop(in0: Option[BufferedReader], protected val out: JPrintWriter,
   // def isAsync = !settings.Yreplsync.value
   def isAsync = false
   // lazy val power = new Power(intp, new StdReplVals(this))(tagOfStdReplVals, classTag[StdReplVals])
+
   def history = in.history
 
   /** The context class loader at the time this object was created */
@@ -929,22 +933,32 @@ class SparkILoop(in0: Option[BufferedReader], protected val out: JPrintWriter,
   }
 
   def createSparkContext(): SparkContext = {
+    import org.apache.spark.util.ConfigUtils._
+
     val uri = System.getenv("SPARK_EXECUTOR_URI")
     if (uri != null) {
       System.setProperty("spark.executor.uri", uri)
     }
-    val master = this.master match {
-      case Some(m) => m
-      case None => {
-        val prop = System.getenv("MASTER")
-        if (prop != null) prop else "local"
-      }
+    val master = this.master
+                     .orElse(Option(System.getenv("MASTER")))
+                     .getOrElse("local")
+    val jars = Option(System.getenv("ADD_JARS")).map(_.split(','))
+                                                .getOrElse(new Array[String](0))
+                                                .map(new java.io.File(_).getAbsolutePath)
+    try {
+      sparkContext = new SparkContext(master, "Spark shell",
+                                      configFromJarList(jars) +
+                                      ("spark.repl.class.uri" -> intp.classServer.uri))
+      } catch {
+      case e: Exception =>
+        e.printStackTrace()
+        echo("Failed to create SparkContext, exiting...")
+        sys.exit(1)
     }
-    val jars = SparkILoop.getAddedJars.map(new java.io.File(_).getAbsolutePath)
-    sparkContext = new SparkContext(master, "Spark shell", System.getenv("SPARK_HOME"), jars)
     echo("Created spark context..")
     sparkContext
   }
+
 
   /** process command-line arguments and do as they request */
   def process(args: Array[String]): Boolean = {

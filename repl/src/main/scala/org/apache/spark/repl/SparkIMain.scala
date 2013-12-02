@@ -126,7 +126,6 @@ import org.apache.spark.Logging
      */
     private var _classLoader: AbstractFileClassLoader = null                              // active classloader
     private val _compiler: Global                     = newCompiler(settings, reporter)   // our private compiler
-
     private val nextReqId = {
       var counter = 0
       () => { counter += 1 ; counter }
@@ -582,6 +581,7 @@ import org.apache.spark.Logging
         // Rewriting    "foo ; bar ; 123"
         // to           "foo ; bar ; val resXX = 123"
         requestFromLine(rewrittenLine, synthetic) match {
+
           case Right(req) => return Right(req withOriginalLine line)
           case x          => return x
         }
@@ -814,6 +814,7 @@ import org.apache.spark.Logging
         case (sym, name)  => afterTyper(termMember(sym, name))
       }
     }
+
     /** We get a bunch of repeated warnings for reasons I haven't
      *  entirely figured out yet.  For now, squash.
      */
@@ -1080,7 +1081,6 @@ import org.apache.spark.Logging
 
   def requestHistoryForName(name: Name): List[Request] =
     prevRequests.toList.reverse filter (_.definedNames contains name)
-
 
   def definitionForName(name: Name): Option[MemberHandler] =
     requestForName(name) flatMap { req =>

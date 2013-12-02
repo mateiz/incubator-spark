@@ -33,6 +33,7 @@ import net.liftweb.json.JsonParser
 
 import org.apache.spark.{Logging, SparkContext}
 import org.apache.spark.deploy.master.RecoveryState
+import org.apache.spark.util.ConfigUtils
 
 /**
  * This suite tests the fault tolerance of the Spark standalone scheduler, mainly the Master.
@@ -65,7 +66,10 @@ private[spark] object FaultToleranceTest extends App with Logging {
   val containerSparkHome = "/opt/spark"
   val dockerMountDir = "%s:%s".format(sparkHome, containerSparkHome)
 
-  System.setProperty("spark.driver.host", "172.17.42.1") // default docker host ip
+  val extraConfig = ConfigUtils.configFromMap(Map(
+      "spark.home"        -> containerSparkHome,
+      "spark.driver.host" -> "172.17.42.1"      // default docker host ip
+    ))
 
   def afterEach() {
     if (sc != null) {
@@ -193,7 +197,7 @@ private[spark] object FaultToleranceTest extends App with Logging {
     // Counter-hack: Because of a hack in SparkEnv#createFromSystemProperties() that changes this
     // property, we need to reset it.
     System.setProperty("spark.driver.port", "0")
-    sc = new SparkContext(getMasterUrls(masters), "fault-tolerance", containerSparkHome)
+    sc = new SparkContext(getMasterUrls(masters), "fault-tolerance", extraConfig)
   }
 
   def getMasterUrls(masters: Seq[TestMasterInfo]): String = {

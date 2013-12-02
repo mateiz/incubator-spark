@@ -22,7 +22,7 @@ import org.apache.spark.SparkContext._
 /**
  * Executes a roll up-style query against Apache logs.
  */
-object LogQuery {
+object LogQuery extends ExampleApp {
   val exampleApacheLogs = List(
     """10.10.10.10 - "FRED" [18/Jan/2013:17:56:07 +1100] "GET http://images.com/2013/Generic.jpg
       | HTTP/1.1" 304 315 "http://referall.com/" "Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1;
@@ -44,8 +44,7 @@ object LogQuery {
       System.exit(1)
     }
 
-    val sc = new SparkContext(args(0), "Log Query",
-      System.getenv("SPARK_HOME"), Seq(System.getenv("SPARK_EXAMPLES_JAR")))
+    val sc = createContext(args(0), "Log Query")
 
     val dataSet =
       if (args.length == 2) sc.textFile(args(1))

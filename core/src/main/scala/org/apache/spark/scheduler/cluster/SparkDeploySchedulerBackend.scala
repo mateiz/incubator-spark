@@ -40,10 +40,10 @@ private[spark] class SparkDeploySchedulerBackend(
 
   override def start() {
     super.start()
-
     // The endpoint for executors to talk to us
+    val (driverHost, driverPort) = sc.getDriverHostAndPort
     val driverUrl = "akka.tcp://spark@%s:%s/user/%s".format(
-      System.getProperty("spark.driver.host"), System.getProperty("spark.driver.port"),
+      driverHost, driverPort,
       CoarseGrainedSchedulerBackend.ACTOR_NAME)
     val args = Seq(driverUrl, "{{EXECUTOR_ID}}", "{{HOSTNAME}}", "{{CORES}}")
     val command = Command(

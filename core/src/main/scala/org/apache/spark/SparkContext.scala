@@ -24,10 +24,12 @@ import java.util.concurrent.atomic.AtomicInteger
 
 import scala.collection.Map
 import scala.collection.generic.Growable
+import scala.collection.JavaConversions._
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable.HashMap
 import scala.reflect.{ ClassTag, classTag}
 import scala.util.DynamicVariable
+import scala.util.Try
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
@@ -65,24 +67,41 @@ import org.apache.spark.storage.{BlockManagerSource, RDDInfo, StorageStatus, Sto
 import org.apache.spark.ui.SparkUI
 import org.apache.spark.util.{ClosureCleaner, MetadataCleaner, MetadataCleanerType,
   TimeStampedHashMap, Utils}
+import org.apache.spark.util.ConfigUtils._
+
+import com.typesafe.config.{Config, ConfigFactory}
 
 /**
  * Main entry point for Spark functionality. A SparkContext represents the connection to a Spark
  * cluster, and can be used to create RDDs, accumulators and broadcast variables on that cluster.
  *
- * @param master Cluster URL to connect to (e.g. mesos://host:port, spark://host:port, local[4]).
- * @param appName A name for your application, to display on the cluster web UI.
- * @param sparkHome Location where Spark is installed on cluster nodes.
- * @param jars Collection of JARs to send to the cluster. These can be paths on the local file
- *             system or HDFS, HTTP, HTTPS, or FTP URLs.
- * @param environment Environment variables to set on worker nodes.
+ * @param config a Typesafe Config object describing the context configuration. Any settings in this
+ *               config overrides the default configs as well as system properties.
+ *
+ * == Configuration Details ==
+ * Only spark.master and spark.appName are required.
+ * {{{
+ *   spark {
+ *     master = "local[4]"    # Cluster URL to connect to (local[4], local-cluster, spark://host:port, etc)
+ *     appName = "demodemo"   # A name for your application, to display on the cluster web UI
+ *     home = "/home/spark/spark"   # Location where Spark is installed on cluster nodes.  Usually doesn't
+ *                                    need to be specified.
+ *     jars = ["http://a.be.c/file1", "/etc/jars/meme.jar"]   # List of JARs to send to cluster, could be
+ *                                    local file paths or HDFS, HTTP, HTTPS, FTP URLs
+ *     environment {          # Environment vars to send
+ *       SPARK_CONFIG_DIR = /etc/spark/conf
+ *     }
+ *   }
+ * }}}
+ *
+ * == Old API ==
+ * An alternative constructor exists to make transitioning to the new config-only API easier.
+ *
+ * There are also utilities in ConfigUtils to help with constructing configs for things like sparkHome,
+ * jars, and the environment.
  */
 class SparkContext(
-    val master: String,
-    val appName: String,
-    val sparkHome: String = null,
-    val jars: Seq[String] = Nil,
-    val environment: Map[String, String] = Map(),
+    val config: Config,
     // This is used only by yarn for now, but should be relevant to other cluster types (mesos, etc)
     // too. This is typically generated from InputFormatInfo.computePreferredLocations .. host, set
     // of data-local splits on host
@@ -90,24 +109,35 @@ class SparkContext(
       scala.collection.immutable.Map())
   extends Logging {
 
+  /*** Alternative constructors ***/
+  def this(master: String, appName: String, extraConfig: Config = ConfigFactory.empty) =
+    this(configFromMasterAppName(master, appName) ++ extraConfig)
+
+  // Extract parameters from configuration
+  val master = config.getString("spark.master")
+  val appName = config.getString("spark.appName")
+  val environment = Try(config.getMap("spark.environment")).getOrElse(Map.empty[String, String])
+  val jars = Try(config.getStringList("spark.jars").toList).getOrElse(List.empty[String])
+
   // Ensure logging is initialized before we spawn any threads
   initLogging()
 
-  // Set Spark driver host and port system properties
-  if (System.getProperty("spark.driver.host") == null) {
-    System.setProperty("spark.driver.host", Utils.localHostName())
-  }
-  if (System.getProperty("spark.driver.port") == null) {
-    System.setProperty("spark.driver.port", "0")
-  }
+  // Obtain a merged configuration.  The priorities are as follows:
+  // 1. Any config settings defined in the config parameter
+  // 2. Java system properties
+  // 3. config file (could be JSON) defined at URL in system property "spark.config.url", if defined
+  // 4. Defaults in spark-defaults.conf in classpath
+  val mergedConfig = loadConfig() ++ config
+  logDebug("Starting Spark Context with config:\n" + mergedConfig.getConfig("spark").root.render)
 
   val isLocal = (master == "local" || master.startsWith("local["))
 
   // Create the Spark execution environment (cache, map output tracker, etc)
-  private[spark] val env = SparkEnv.createFromSystemProperties(
+  private[spark] val env = SparkEnv.createFromConfig(
     "<driver>",
-    System.getProperty("spark.driver.host"),
-    System.getProperty("spark.driver.port").toInt,
+    mergedConfig,
+    (Try(mergedConfig.getString("spark.driver.host")).getOrElse(Utils.localHostName),
+     mergedConfig.getInt("spark.driver.port")),
     true,
     isLocal)
   SparkEnv.set(env)
@@ -126,10 +156,8 @@ class SparkContext(
 
   val startTime = System.currentTimeMillis()
 
-  // Add each JAR given through the constructor
-  if (jars != null) {
-    jars.foreach { addJar(_) }
-  }
+  // Add each JAR given through the config
+  jars.foreach { addJar(_) }
 
   // Environment variables to pass to our executors
   private[spark] val executorEnvs = HashMap[String, String]()
@@ -723,6 +751,10 @@ class SparkContext(
     dagScheduler.getPreferredLocs(rdd, partition)
   }
 
+  /** Return the driver Akka host and port for remote access */
+  private[spark] def getDriverHostAndPort =
+    (env.conf.getString("spark.driver.host"), env.conf.getInt("spark.driver.port"))
+
   /**
    * Adds a JAR dependency for all tasks to be executed on this SparkContext in the future.
    * The `path` passed can be either a local file, a file in HDFS (or other Hadoop-supported
@@ -804,20 +836,13 @@ class SparkContext(
 
 
   /**
-   * Get Spark's home location from either a value set through the constructor,
-   * or the spark.home Java property, or the SPARK_HOME environment variable
+   * Get Spark's home location from configuration, or the SPARK_HOME environment variable
    * (in that order of preference). If neither of these is set, return None.
+   * Note that the configuration will pick up the system property as a backup.
    */
   private[spark] def getSparkHome(): Option[String] = {
-    if (sparkHome != null) {
-      Some(sparkHome)
-    } else if (System.getProperty("spark.home") != null) {
-      Some(System.getProperty("spark.home"))
-    } else if (System.getenv("SPARK_HOME") != null) {
-      Some(System.getenv("SPARK_HOME"))
-    } else {
-      None
-    }
+    Try(config.getString("spark.home")).toOption
+      .orElse(Option(System.getenv("SPARK_HOME")))
   }
 
   /**

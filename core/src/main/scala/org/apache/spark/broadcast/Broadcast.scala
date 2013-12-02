@@ -20,6 +20,8 @@ package org.apache.spark.broadcast
 import java.io._
 import java.util.concurrent.atomic.AtomicLong
 
+import com.typesafe.config.Config
+
 import org.apache.spark._
 
 abstract class Broadcast[T](private[spark] val id: Long) extends Serializable {
@@ -31,26 +33,27 @@ abstract class Broadcast[T](private[spark] val id: Long) extends Serializable {
   override def toString = "Broadcast(" + id + ")"
 }
 
-private[spark] 
-class BroadcastManager(val _isDriver: Boolean) extends Logging with Serializable {
+private[spark]
+class BroadcastManager(val _isDriver: Boolean, config: Config) extends Logging with Serializable {
 
   private var initialized = false
   private var broadcastFactory: BroadcastFactory = null
 
   initialize()
 
+  lazy val configUpdates = broadcastFactory.configUpdates
+
   // Called by SparkContext or Executor before using Broadcast
   private def initialize() {
     synchronized {
       if (!initialized) {
-        val broadcastFactoryClass = System.getProperty(
-          "spark.broadcast.factory", "org.apache.spark.broadcast.HttpBroadcastFactory")
+        val broadcastFactoryClass = config.getString("spark.broadcast.factory")
 
         broadcastFactory =
           Class.forName(broadcastFactoryClass).newInstance.asInstanceOf[BroadcastFactory]
 
         // Initialize appropriate BroadcastFactory and BroadcastObject
-        broadcastFactory.initialize(isDriver)
+        broadcastFactory.initialize(isDriver, config)
 
         initialized = true
       }

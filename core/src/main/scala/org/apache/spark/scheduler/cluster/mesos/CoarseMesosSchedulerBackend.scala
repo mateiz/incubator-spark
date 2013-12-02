@@ -120,9 +120,9 @@ private[spark] class CoarseMesosSchedulerBackend(
     }
     val command = CommandInfo.newBuilder()
       .setEnvironment(environment)
-    val driverUrl = "akka.tcp://spark@%s:%s/user/%s".format(
-      System.getProperty("spark.driver.host"),
-      System.getProperty("spark.driver.port"),
+    val (driverHost, driverPort) = sc.getDriverHostAndPort
+    val driverUrl = "akka://spark@%s:%s/user/%s".format(
+      driverHost, driverPort,
       CoarseGrainedSchedulerBackend.ACTOR_NAME)
     val uri = System.getProperty("spark.executor.uri")
     if (uri == null) {

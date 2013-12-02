@@ -56,7 +56,7 @@ object SimpleZeroMQPublisher {
  *
  * To work with zeroMQ, some native libraries have to be installed.
  * Install zeroMQ (release 2.1) core libraries. [ZeroMQ Install guide](http://www.zeromq.org/intro:get-the-software)
- * 
+ *
  * Usage: ZeroMQWordCount <master> <zeroMQurl> <topic>
  * In local mode, <master> should be 'local[n]' with n > 1
  *   <zeroMQurl> and <topic> describe where zeroMq publisher is running.
@@ -77,8 +77,7 @@ object ZeroMQWordCount {
     val Seq(master, url, topic) = args.toSeq
 
     // Create the context and set the batch size
-    val ssc = new StreamingContext(master, "ZeroMQWordCount", Seconds(2),
-      System.getenv("SPARK_HOME"), Seq(System.getenv("SPARK_EXAMPLES_JAR")))
+    val ssc = new StreamingContext(master, "ZeroMQWordCount", Seconds(2), ExampleConfig.jarConfig)
 
     def bytesToStringIterator(x: Seq[ByteString]) = (x.map(_.utf8String)).iterator
 

@@ -17,20 +17,10 @@
 
 package org.apache.spark.examples
 
-import org.apache.spark._
+import org.apache.spark.SparkContext
+import org.apache.spark.util.ConfigUtils._
 
-object HdfsTest extends ExampleApp {
-  def main(args: Array[String]) {
-    val sc = createContext(args(0), "HdfsTest")
-    val file = sc.textFile(args(1))
-    val mapped = file.map(s => s.length).cache()
-    for (iter <- 1 to 10) {
-      val start = System.currentTimeMillis()
-      for (x <- mapped) { x + 2 }
-      //  println("Processing: " + x)
-      val end = System.currentTimeMillis()
-      println("Iteration " + iter + " took " + (end-start) + " ms")
-    }
-    System.exit(0)
-  }
+trait ExampleApp {
+  def createContext(master: String, name: String): SparkContext =
+    new SparkContext(master, name, configFromJarList(Seq(System.getenv("SPARK_EXAMPLES_JAR"))))
 }

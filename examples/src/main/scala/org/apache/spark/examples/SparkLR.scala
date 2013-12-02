@@ -25,7 +25,7 @@ import org.apache.spark._
 /**
  * Logistic regression based classification.
  */
-object SparkLR {
+object SparkLR extends ExampleApp {
   val N = 10000  // Number of data points
   val D = 10   // Numer of dimensions
   val R = 0.7  // Scaling factor
@@ -48,8 +48,7 @@ object SparkLR {
       System.err.println("Usage: SparkLR <master> [<slices>]")
       System.exit(1)
     }
-    val sc = new SparkContext(args(0), "SparkLR",
-      System.getenv("SPARK_HOME"), Seq(System.getenv("SPARK_EXAMPLES_JAR")))
+    val sc = createContext(args(0), "SparkLR")
     val numSlices = if (args.length > 1) args(1).toInt else 2
     val points = sc.parallelize(generateData, numSlices).cache()
 

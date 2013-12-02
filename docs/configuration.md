@@ -5,17 +5,39 @@ title: Spark Configuration
 
 Spark provides three main locations to configure the system:
 
-* [Java system properties](#system-properties), which control internal configuration parameters and can be set
-  either programmatically (by calling `System.setProperty` *before* creating a `SparkContext`) or through
-  JVM arguments.
+* [SparkContext configuration](#sparkcontext-configuration), which control configuration parameters
+  for each Spark application and can be programmatically set by passing in a Config object to the SparkContext,
+  or through JVM arguments
 * [Environment variables](#environment-variables) for configuring per-machine settings such as the IP address,
   which can be set in the `conf/spark-env.sh` script.
 * [Logging configuration](#configuring-logging), which is done through `log4j.properties`.
 
 
-# System Properties
+# SparkContext Configuration
 
-To set a system property for configuring Spark, you need to either pass it with a -D flag to the JVM (for example `java -Dspark.cores.max=5 MyProgram`) or call `System.setProperty` in your code *before* creating your Spark context, as follows:
+A Spark application may be configured in a number of different ways.  The configuration methods are listed
+in order of priority, and any configuration properties passed in through methods listed first will take
+precedence.
+
+1. Any Config objects passed in through the SparkContext constructor.  These are [Typesafe Config](https://github.com/typesafehub/config)
+   instances, which can easily be created from JSON or .property files.
+2. Java system properties, defined programmatically (`System.setProperty`) or through -D flags passed in to
+   the JVM
+3. A config file (could be JSON) defined at the URL in the system property `spark.config.url`, or the
+   environment variable `SPARK_CONFIG_URL`, if defined.  This could be HTTP, FTP, or just plain file URI.
+4. The defaults in `org.apache.spark.spark-defaults.conf` in the classpath
+
+For example, to programmatically set some properties and directly pass it into a SparkContext, you can do
+
+{% highlight scala %}
+val extraConfig = ConfigUtils.parseFromMap(Map(
+  "spark.cores.max" -> 5,
+  "spark.mesos.coarse" -> true,
+))
+val sc = new SparkContext("local", name, extraConfig)
+{% endhighlight %}
+
+You can also use system properties for configuring Spark. You need to either pass it with a -D flag to the JVM (for example `java -Dspark.cores.max=5 MyProgram`) or call `System.setProperty` in your code *before* creating your Spark context.
 
 {% highlight scala %}
 System.setProperty("spark.cores.max", "5")
@@ -344,7 +366,7 @@ Apart from these, the following properties are also available, and may be useful
   <td>spark.broadcast.blockSize</td>
   <td>4096</td>
   <td>
-    Size of each piece of a block in kilobytes for <code>TorrentBroadcastFactory</code>. 
+    Size of each piece of a block in kilobytes for <code>TorrentBroadcastFactory</code>.
     Too large a value decreases parallelism during broadcast (makes it slower); however, if it is too small, <code>BlockManager</code> might take a performance hit.
   </td>
 </tr>
@@ -372,7 +394,7 @@ The following variables can be set in `spark-env.sh`:
    Note that applications can also add dependencies for themselves through `SparkContext.addJar` -- we recommend
    doing that when possible.
 * `SPARK_JAVA_OPTS`, to add JVM options. This includes Java options like garbage collector settings and any system
-   properties that you'd like to pass with `-D` (e.g., `-Dspark.local.dir=/disk1,/disk2`). 
+   properties that you'd like to pass with `-D` (e.g., `-Dspark.local.dir=/disk1,/disk2`).
 * Options for the Spark [standalone cluster scripts](spark-standalone.html#cluster-launch-scripts), such as number of cores
   to use on each machine and maximum memory.
 
