@@ -25,17 +25,17 @@ import org.apache.spark.streaming.dstream._
 
 import org.apache.spark._
 import org.apache.spark.rdd.RDD
-import org.apache.spark.streaming.receivers.ActorReceiver
-import org.apache.spark.streaming.receivers.ReceiverSupervisorStrategy
-import org.apache.spark.streaming.receivers.ZeroMQReceiver
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.util.MetadataCleaner
 import org.apache.spark.util.ConfigUtils._
-import org.apache.spark.streaming.receivers.ActorReceiver
+import org.apache.spark.streaming.receivers._
 
 import scala.collection.mutable.Queue
 import scala.collection.Map
 import scala.reflect.ClassTag
+import scala.util.Failure
+import scala.util.Try
+import scala.util.Success
 
 import java.io.InputStream
 import java.util.concurrent.atomic.AtomicInteger
@@ -50,7 +50,7 @@ import twitter4j.Status
 import twitter4j.auth.Authorization
 
 import akka.util.ByteString
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.{ConfigFactory, Config}
 
 
 /**
@@ -63,6 +63,9 @@ class StreamingContext private (
     cp_ : Checkpoint,
     batchDur_ : Duration
   ) extends Logging {
+
+  def this(config: Config) = this(new SparkContext(config),
+    null, Duration(config.getLong("spark.streaming.batchDuration")))
 
   /**
    * Create a StreamingContext using an existing SparkContext.
@@ -103,14 +106,14 @@ class StreamingContext private (
       "both SparkContext and checkpoint as null")
   }
 
-  if(cp_ != null && cp_.delaySeconds >= 0 && MetadataCleaner.getDelaySeconds < 0) {
-    MetadataCleaner.setDelaySeconds(cp_.delaySeconds)
-  }
+//  if(cp_ != null && cp_.delaySeconds >= 0 && MetadataCleaner.getDelaySeconds(sc.config) < 0) {
+//    // MetadataCleaner.setDelaySeconds(cp_.delaySeconds, cp_.sparkConf)
+//  }
 
-  if (MetadataCleaner.getDelaySeconds < 0) {
-    throw new SparkException("Spark Streaming cannot be used without setting spark.cleaner.ttl; "
-      + "set this property before creating a SparkContext (use SPARK_JAVA_OPTS for the shell)")
-  }
+//  if (MetadataCleaner.getDelaySeconds(sc.config) < 0) {
+//    throw new SparkException("Spark Streaming cannot be used without setting spark.cleaner.ttl; "
+//      + "set this property before creating a SparkContext (use SPARK_JAVA_OPTS for the shell)")
+//  }
 
   protected[streaming] val isCheckpointPresent = (cp_ != null)
 
@@ -119,7 +122,8 @@ class StreamingContext private (
       new SparkContext(cp_.master, cp_.framework,
                        configFromSparkHome(cp_.sparkHome) ++
                        configFromJarList(cp_.jars) ++
-                       configFromEnvironmentMap(cp_.environment))
+                       configFromEnvironmentMap(cp_.environment) ++
+                       ConfigFactory.parseString(cp_.sparkConf))
     } else {
       sc_
     }
@@ -584,10 +588,12 @@ object StreamingContext {
       extraConfig: Config): SparkContext = {
     // Set the default cleaner delay to an hour if not already set.
     // This should be sufficient for even 1 second interval.
-    if (MetadataCleaner.getDelaySeconds < 0) {
-      MetadataCleaner.setDelaySeconds(3600)
+    val conf: Config = Try(MetadataCleaner.getDelaySeconds(extraConfig)) match {
+      case Success(_) => extraConfig
+      case Failure(_) => extraConfig.
+        withFallback(ConfigFactory.parseString("spark.cleaner.ttl = 3600"))
     }
-    new SparkContext(master, appName, extraConfig)
+    new SparkContext(master, appName, conf)
   }
 
   protected[streaming] def rddToFileName[T](prefix: String, suffix: String, time: Time): String = {

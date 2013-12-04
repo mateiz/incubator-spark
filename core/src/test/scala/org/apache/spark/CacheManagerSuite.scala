@@ -24,6 +24,9 @@ import org.scalatest.mock.EasyMockSugar
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.{BlockManager, RDDBlockId, StorageLevel}
+import org.apache.spark.util.CoreTestConfig._
+import org.apache.spark.storage.RDDBlockId
+import scala.Some
 
 // TODO: Test the CacheManager's thread-safety aspects
 class CacheManagerSuite extends FunSuite with BeforeAndAfter with EasyMockSugar {
@@ -35,7 +38,7 @@ class CacheManagerSuite extends FunSuite with BeforeAndAfter with EasyMockSugar 
   var rdd: RDD[Int] = _
 
   before {
-    sc = new SparkContext("local", "test")
+    sc = new SparkContext("local", "test", config)
     blockManager = mock[BlockManager]
     cacheManager = new CacheManager(blockManager)
     split = new Partition { override def index: Int = 0 }

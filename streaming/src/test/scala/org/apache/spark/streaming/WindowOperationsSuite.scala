@@ -17,12 +17,14 @@
 
 package org.apache.spark.streaming
 
+import com.typesafe.config.ConfigFactory
 import org.apache.spark.streaming.StreamingContext._
-import collection.mutable.ArrayBuffer
 
 class WindowOperationsSuite extends TestSuiteBase {
 
-  System.setProperty("spark.streaming.clock", "org.apache.spark.streaming.util.ManualClock")
+  override def configOverrides = ConfigFactory.
+    parseString("spark.streaming.clock = org.apache.spark.streaming.util.ManualClock").
+    withFallback(super.configOverrides)
 
   override def framework = "WindowOperationsSuite"
 

@@ -22,6 +22,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.io.Files;
 
+import com.typesafe.config.ConfigFactory;
 import kafka.serializer.StringDecoder;
 
 import org.apache.hadoop.mapreduce.lib.input.SequenceFileInputFormat;
@@ -62,8 +63,15 @@ public class JavaAPISuite implements Serializable {
 
   @Before
   public void setUp() {
-      System.setProperty("spark.streaming.clock", "org.apache.spark.streaming.util.ManualClock");
-      ssc = new JavaStreamingContext("local[2]", "test", new Duration(1000));
+    // This is unfortunate, I can not import the scala class StreamingTestConfig and use here.
+    Map<String, String> m = new HashMap<String, String>(5);
+    m.put("spark.master", "local[2]");
+    m.put("spark.appName", "test");
+    m.put("spark.streaming.batchDuration", "1000");
+    m.put("spark.streaming.clock","org.apache.spark.streaming.util.ManualClock");
+    m.put("spark.cleaner.ttl","3600");
+    m.put("spark.storage.memoryFraction", "0.66");
+    ssc = new JavaStreamingContext(ConfigFactory.parseMap(m));
     ssc.checkpoint("checkpoint");
   }
 

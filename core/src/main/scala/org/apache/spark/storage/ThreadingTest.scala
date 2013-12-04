@@ -22,6 +22,7 @@ import akka.actor._
 import java.util.concurrent.ArrayBlockingQueue
 import util.Random
 import org.apache.spark.serializer.KryoSerializer
+import com.typesafe.config.ConfigFactory
 
 /**
  * This class tests the BlockManager and MemoryStore for thread safety and
@@ -95,7 +96,8 @@ private[spark] object ThreadingTest {
     val blockManagerMaster = new BlockManagerMaster(
       Left(actorSystem.actorOf(Props(new BlockManagerMasterActor(true)))))
     val blockManager = new BlockManager(
-      "<driver>", actorSystem, blockManagerMaster, serializer, 1024 * 1024)
+      "<driver>", actorSystem, blockManagerMaster, serializer,
+      ConfigFactory.parseString(s"spark.storage.blockmanager.maxmem = ${1024 * 1024}"))
     val producers = (1 to numProducers).map(i => new ProducerThread(blockManager, i))
     val consumers = producers.map(p => new ConsumerThread(blockManager, p.queue))
     producers.foreach(_.start)

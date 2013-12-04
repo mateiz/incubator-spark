@@ -26,6 +26,8 @@ import org.apache.spark.scheduler.cluster._
 import scala.collection.mutable.ArrayBuffer
 
 import java.util.Properties
+import org.apache.spark.util.CoreTestConfig._
+import scala.Some
 
 class FakeTaskSetManager(
     initPriority: Int,
@@ -132,7 +134,7 @@ class ClusterSchedulerSuite extends FunSuite with LocalSparkContext with Logging
   }
 
   test("FIFO Scheduler Test") {
-    sc = new SparkContext("local", "ClusterSchedulerSuite")
+    sc = new SparkContext("local", "ClusterSchedulerSuite", config)
     val clusterScheduler = new ClusterScheduler(sc)
     var tasks = ArrayBuffer[Task[_]]()
     val task = new FakeTask(0)
@@ -159,7 +161,7 @@ class ClusterSchedulerSuite extends FunSuite with LocalSparkContext with Logging
   }
 
   test("Fair Scheduler Test") {
-    sc = new SparkContext("local", "ClusterSchedulerSuite")
+    sc = new SparkContext("local", "ClusterSchedulerSuite", config)
     val clusterScheduler = new ClusterScheduler(sc)
     var tasks = ArrayBuffer[Task[_]]()
     val task = new FakeTask(0)
@@ -216,7 +218,7 @@ class ClusterSchedulerSuite extends FunSuite with LocalSparkContext with Logging
   }
 
   test("Nested Pool Test") {
-    sc = new SparkContext("local", "ClusterSchedulerSuite")
+    sc = new SparkContext("local", "ClusterSchedulerSuite", config)
     val clusterScheduler = new ClusterScheduler(sc)
     var tasks = ArrayBuffer[Task[_]]()
     val task = new FakeTask(0)

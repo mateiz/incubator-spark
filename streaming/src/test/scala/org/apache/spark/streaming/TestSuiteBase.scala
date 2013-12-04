@@ -18,7 +18,7 @@
 package org.apache.spark.streaming
 
 import org.apache.spark.streaming.dstream.{InputDStream, ForEachDStream}
-import org.apache.spark.streaming.util.ManualClock
+import org.apache.spark.streaming.util.{StreamingTestConfig, ManualClock}
 
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.mutable.SynchronizedBuffer
@@ -30,6 +30,7 @@ import org.scalatest.{BeforeAndAfter, FunSuite}
 
 import org.apache.spark.Logging
 import org.apache.spark.rdd.RDD
+import com.typesafe.config.ConfigFactory
 
 /**
  * This is a input stream just for the testsuites. This is equivalent to a checkpointable,
@@ -112,6 +113,8 @@ trait TestSuiteBase extends FunSuite with BeforeAndAfter with Logging {
   // Name of the framework for Spark context
   def framework = "TestSuiteBase"
 
+  def configOverrides = StreamingTestConfig.config
+
   // Master for Spark context
   def master = "local[2]"
 
@@ -141,7 +144,7 @@ trait TestSuiteBase extends FunSuite with BeforeAndAfter with Logging {
     ): StreamingContext = {
 
     // Create StreamingContext
-    val ssc = new StreamingContext(master, framework, batchDuration)
+    val ssc = new StreamingContext(master, framework, batchDuration, configOverrides)
     if (checkpointDir != null) {
       ssc.checkpoint(checkpointDir)
     }
@@ -167,7 +170,7 @@ trait TestSuiteBase extends FunSuite with BeforeAndAfter with Logging {
     ): StreamingContext = {
 
     // Create StreamingContext
-    val ssc = new StreamingContext(master, framework, batchDuration)
+    val ssc = new StreamingContext(master, framework, batchDuration, configOverrides)
     if (checkpointDir != null) {
       ssc.checkpoint(checkpointDir)
     }

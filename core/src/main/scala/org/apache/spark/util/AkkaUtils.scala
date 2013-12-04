@@ -44,10 +44,9 @@ private[spark] object AkkaUtils {
     val akkaTimeout = config.getInt("spark.akka.timeout")
     val akkaFrameSize = config.getInt("spark.akka.frameSize")
     val lifecycleEvents = if (config.getBoolean("spark.akka.logLifecycleEvents")) "on" else "off"
-    val akkaHeartBeatPauses = System.getProperty("spark.akka.heartbeat.pauses", "600").toInt
-    val akkaFailureDetector =
-      System.getProperty("spark.akka.failure-detector.threshold", "300.0").toDouble
-    val akkaHeartBeatInterval = System.getProperty("spark.akka.heartbeat.interval", "1000").toInt
+    val akkaHeartBeatPauses = config.getInt("spark.akka.heartbeat.pauses")
+    val akkaFailureDetector = config.getDouble("spark.akka.failure-detector.threshold")
+    val akkaHeartBeatInterval = config.getInt("spark.akka.heartbeat.interval")
 
     val akkaConf = ConfigFactory.parseString(
       s"""

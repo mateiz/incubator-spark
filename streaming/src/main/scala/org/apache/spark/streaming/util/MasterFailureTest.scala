@@ -35,6 +35,7 @@ import com.google.common.io.Files
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.fs.{FileUtil, FileSystem, Path}
 import org.apache.hadoop.conf.Configuration
+import com.typesafe.config.ConfigFactory
 
 
 private[streaming]
@@ -177,7 +178,8 @@ object MasterFailureTest extends Logging {
     fs.mkdirs(testDir)
 
     // Setup the streaming computation with the given operation
-    var ssc = new StreamingContext("local[4]", "MasterFailureTest", batchDuration)
+    val ssc = new StreamingContext("local[4]", "MasterFailureTest", batchDuration,
+      StreamingTestConfig.config)
     ssc.checkpoint(checkpointDir.toString)
     val inputStream = ssc.textFileStream(testDir.toString)
     val operatedStream = operation(inputStream)
@@ -221,7 +223,6 @@ object MasterFailureTest extends Logging {
         // (i) StreamingContext has not been shut down yet
         // (ii) The last expected output has not been generated yet
         // (iii) Its not timed out yet
-        System.clearProperty("spark.streaming.clock")
         ssc.start()
         val startTime = System.currentTimeMillis()
         while (!killed && !isLastOutputGenerated && !isTimedOut) {

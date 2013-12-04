@@ -24,37 +24,36 @@ import akka.actor.Props
 import akka.util.ByteString
 
 import org.apache.spark.streaming.dstream.{NetworkReceiver, SparkFlumeEvent}
-import java.net.{InetSocketAddress, SocketException, Socket, ServerSocket}
+import java.net.{InetSocketAddress, SocketException, ServerSocket}
 import java.io.{File, BufferedWriter, OutputStreamWriter}
 import java.util.concurrent.{Executors, TimeUnit, ArrayBlockingQueue}
 import collection.mutable.{SynchronizedBuffer, ArrayBuffer}
 import util.ManualClock
 import org.apache.spark.storage.StorageLevel
 import org.apache.spark.streaming.receivers.Receiver
-import org.apache.spark.{SparkContext, Logging}
-import scala.util.Random
+import org.apache.spark.Logging
 import org.apache.commons.io.FileUtils
 import org.scalatest.BeforeAndAfter
 import org.apache.flume.source.avro.AvroSourceProtocol
 import org.apache.flume.source.avro.AvroFlumeEvent
-import org.apache.flume.source.avro.Status
-import org.apache.avro.ipc.{specific, NettyTransceiver}
+import org.apache.avro.ipc.NettyTransceiver
 import org.apache.avro.ipc.specific.SpecificRequestor
 import java.nio.ByteBuffer
 import collection.JavaConversions._
 import java.nio.charset.Charset
 import com.google.common.io.Files
 import java.util.concurrent.atomic.AtomicInteger
+import com.typesafe.config.ConfigFactory
 
 class InputStreamsSuite extends TestSuiteBase with BeforeAndAfter {
-
   val testPort = 9999
 
   override def checkpointDir = "checkpoint"
 
-  before {
-    System.setProperty("spark.streaming.clock", "org.apache.spark.streaming.util.ManualClock")
-  }
+  val config = ConfigFactory.
+    parseString("spark.streaming.clock = org.apache.spark.streaming.util.ManualClock").
+    withFallback(super.configOverrides)
+
 
   test("socket input stream") {
     // Start the server
@@ -62,7 +61,7 @@ class InputStreamsSuite extends TestSuiteBase with BeforeAndAfter {
     testServer.start()
 
     // Set up the streaming context and input streams
-    val ssc = new StreamingContext(master, framework, batchDuration)
+    val ssc = new StreamingContext(master, framework, batchDuration, config)
     val networkStream = ssc.socketTextStream("localhost", testServer.port, StorageLevel.MEMORY_AND_DISK)
     val outputBuffer = new ArrayBuffer[Seq[String]] with SynchronizedBuffer[Seq[String  ]]
     val outputStream = new TestOutputStream(networkStream, outputBuffer)
@@ -107,7 +106,7 @@ class InputStreamsSuite extends TestSuiteBase with BeforeAndAfter {
 
   test("flume input stream") {
     // Set up the streaming context and input streams
-    val ssc = new StreamingContext(master, framework, batchDuration)
+    val ssc = new StreamingContext(master, framework, batchDuration, config)
     val flumeStream = ssc.flumeStream("localhost", testPort, StorageLevel.MEMORY_AND_DISK)
     val outputBuffer = new ArrayBuffer[Seq[SparkFlumeEvent]]
       with SynchronizedBuffer[Seq[SparkFlumeEvent]]
@@ -156,11 +155,9 @@ class InputStreamsSuite extends TestSuiteBase with BeforeAndAfter {
 
   test("file input stream") {
     // Disable manual clock as FileInputDStream does not work with manual clock
-    System.clearProperty("spark.streaming.clock")
-
     // Set up the streaming context and input streams
     val testDir = Files.createTempDir()
-    val ssc = new StreamingContext(master, framework, batchDuration)
+    val ssc = new StreamingContext(master, framework, batchDuration, super.configOverrides)
     val fileStream = ssc.textFileStream(testDir.toString)
     val outputBuffer = new ArrayBuffer[Seq[String]] with SynchronizedBuffer[Seq[String]]
     def output = outputBuffer.flatMap(x => x)
@@ -200,8 +197,6 @@ class InputStreamsSuite extends TestSuiteBase with BeforeAndAfter {
 
     FileUtils.deleteDirectory(testDir)
 
-    // Enable manual clock back again for other tests
-    System.setProperty("spark.streaming.clock", "org.apache.spark.streaming.util.ManualClock")
   }
 
 
@@ -212,7 +207,7 @@ class InputStreamsSuite extends TestSuiteBase with BeforeAndAfter {
     testServer.start()
 
     // Set up the streaming context and input streams
-    val ssc = new StreamingContext(master, framework, batchDuration)
+    val ssc = new StreamingContext(master, framework, batchDuration, config)
     val networkStream = ssc.actorStream[String](Props(new TestActor(port)), "TestActor",
       StorageLevel.MEMORY_AND_DISK) //Had to pass the local value of port to prevent from closing over entire scope
     val outputBuffer = new ArrayBuffer[Seq[String]] with SynchronizedBuffer[Seq[String]]
@@ -256,7 +251,7 @@ class InputStreamsSuite extends TestSuiteBase with BeforeAndAfter {
   }
 
   test("kafka input stream") {
-    val ssc = new StreamingContext(master, framework, batchDuration)
+    val ssc = new StreamingContext(master, framework, batchDuration, configOverrides)
     val topics = Map("my-topic" -> 1)
     val test1 = ssc.kafkaStream("localhost:12345", "group", topics)
     val test2 = ssc.kafkaStream("localhost:12345", "group", topics, StorageLevel.MEMORY_AND_DISK)
@@ -279,7 +274,7 @@ class InputStreamsSuite extends TestSuiteBase with BeforeAndAfter {
     MultiThreadTestReceiver.haveAllThreadsFinished = false
 
     // set up the network stream using the test receiver
-    val ssc = new StreamingContext(master, framework, batchDuration)
+    val ssc = new StreamingContext(master, framework, batchDuration, config)
     val networkStream = ssc.networkStream[Int](testReceiver)
     val countStream = networkStream.count
     val outputBuffer = new ArrayBuffer[Seq[Long]] with SynchronizedBuffer[Seq[Long]]

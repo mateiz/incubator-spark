@@ -23,14 +23,14 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.SparkContext._
 
 import util.ManualClock
+import com.typesafe.config.ConfigFactory
 
 class BasicOperationsSuite extends TestSuiteBase {
 
   override def framework() = "BasicOperationsSuite"
-
-  before {
-    System.setProperty("spark.streaming.clock", "org.apache.spark.streaming.util.ManualClock")
-  }
+  override val configOverrides = ConfigFactory.
+    parseString("spark.streaming.clock = org.apache.spark.streaming.util.ManualClock").
+    withFallback(super.configOverrides)
 
   test("map") {
     val input = Seq(1 to 4, 5 to 8, 9 to 12)
@@ -381,7 +381,7 @@ class BasicOperationsSuite extends TestSuiteBase {
   }
 
   test("slice") {
-    val ssc = new StreamingContext("local[2]", "BasicOperationSuite", Seconds(1))
+    val ssc = new StreamingContext("local[2]", "BasicOperationSuite", Seconds(1), configOverrides)
     val input = Seq(Seq(1), Seq(2), Seq(3), Seq(4))
     val stream = new TestInputStream[Int](ssc, input, 2)
     ssc.registerInputStream(stream)

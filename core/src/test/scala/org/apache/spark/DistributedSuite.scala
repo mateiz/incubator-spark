@@ -26,6 +26,10 @@ import org.scalatest.time.{Span, Millis}
 
 import SparkContext._
 import org.apache.spark.storage.{BlockManagerWorker, GetBlock, RDDBlockId, StorageLevel}
+import com.typesafe.config.ConfigFactory
+import org.apache.spark.util.CoreTestConfig._
+import org.apache.spark.storage.RDDBlockId
+import org.apache.spark.storage.GetBlock
 
 
 class NotSerializableClass
@@ -195,20 +199,19 @@ class DistributedSuite extends FunSuite with ShouldMatchers with BeforeAndAfter
   }
 
   test("compute without caching when no partitions fit in memory") {
-    System.setProperty("spark.storage.memoryFraction", "0.0001")
-    sc = new SparkContext(clusterUrl, "test")
+    sc = new SparkContext(clusterUrl, "test", ConfigFactory.
+      parseString("spark.storage.memoryFraction = 0.0001").withFallback(config))
     // data will be 4 million * 4 bytes = 16 MB in size, but our memoryFraction set the cache
     // to only 50 KB (0.0001 of 512 MB), so no partitions should fit in memory
     val data = sc.parallelize(1 to 4000000, 2).persist(StorageLevel.MEMORY_ONLY_SER)
     assert(data.count() === 4000000)
     assert(data.count() === 4000000)
     assert(data.count() === 4000000)
-    System.clearProperty("spark.storage.memoryFraction")
   }
 
   test("compute when only some partitions fit in memory") {
-    System.setProperty("spark.storage.memoryFraction", "0.01")
-    sc = new SparkContext(clusterUrl, "test")
+    sc = new SparkContext(clusterUrl, "test", ConfigFactory.
+      parseString("spark.storage.memoryFraction = 0.01").withFallback(config))
     // data will be 4 million * 4 bytes = 16 MB in size, but our memoryFraction set the cache
     // to only 5 MB (0.01 of 512 MB), so not all of it will fit in memory; we use 20 partitions
     // to make sure that *some* of them do fit though
@@ -216,7 +219,6 @@ class DistributedSuite extends FunSuite with ShouldMatchers with BeforeAndAfter
     assert(data.count() === 4000000)
     assert(data.count() === 4000000)
     assert(data.count() === 4000000)
-    System.clearProperty("spark.storage.memoryFraction")
   }
 
   test("passing environment variables to cluster") {

@@ -32,7 +32,7 @@ import com.google.common.io.Files
 import org.apache.spark.streaming.StreamingContext.toPairDStreamFunctions
 import org.apache.spark.streaming.dstream.FileInputDStream
 import org.apache.spark.streaming.util.ManualClock
-
+import com.typesafe.config.ConfigFactory
 
 
 /**
@@ -42,7 +42,9 @@ import org.apache.spark.streaming.util.ManualClock
  */
 class CheckpointSuite extends TestSuiteBase with BeforeAndAfter {
 
-  System.setProperty("spark.streaming.clock", "org.apache.spark.streaming.util.ManualClock")
+  override val configOverrides = ConfigFactory.
+    parseString("spark.streaming.clock = org.apache.spark.streaming.util.ManualClock").
+    withFallback(super.configOverrides)
 
   before {
     FileUtils.deleteDirectory(new File(checkpointDir))
@@ -64,8 +66,6 @@ class CheckpointSuite extends TestSuiteBase with BeforeAndAfter {
   test("basic rdd checkpoints + dstream graph checkpoint recovery") {
 
     assert(batchDuration === Milliseconds(500), "batchDuration for this test must be 1 second")
-
-    System.setProperty("spark.streaming.clock", "org.apache.spark.streaming.util.ManualClock")
 
     val stateStreamCheckpointInterval = Seconds(1)
 
@@ -198,13 +198,10 @@ class CheckpointSuite extends TestSuiteBase with BeforeAndAfter {
   // It also tests whether batches, whose processing was incomplete due to the
   // failure, are re-processed or not.
   test("recovery with file input stream") {
-    // Disable manual clock as FileInputDStream does not work with manual clock
-    val clockProperty = System.getProperty("spark.streaming.clock")
-    System.clearProperty("spark.streaming.clock")
 
     // Set up the streaming context and input streams
     val testDir = Files.createTempDir()
-    var ssc = new StreamingContext(master, framework, Seconds(1))
+    var ssc = new StreamingContext(master, framework, Seconds(1), super.configOverrides)
     ssc.checkpoint(checkpointDir)
     val fileStream = ssc.textFileStream(testDir.toString)
     // Making value 3 take large time to process, to ensure that the master
@@ -298,10 +295,6 @@ class CheckpointSuite extends TestSuiteBase with BeforeAndAfter {
     )
     // To ensure that all the inputs were received correctly
     assert(expectedOutput.last === output.last)
-
-    // Enable manual clock back again for other tests
-    if (clockProperty != null)
-      System.setProperty("spark.streaming.clock", clockProperty)
   }
 
 

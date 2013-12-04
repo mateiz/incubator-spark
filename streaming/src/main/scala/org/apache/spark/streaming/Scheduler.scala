@@ -20,6 +20,9 @@ package org.apache.spark.streaming
 import util.{ManualClock, RecurringTimer, Clock}
 import org.apache.spark.SparkEnv
 import org.apache.spark.Logging
+import com.typesafe.config.{Config, ConfigFactory}
+import org.apache.spark.util.ConfigUtils
+import scala.util.Try
 
 private[streaming]
 class Scheduler(ssc: StreamingContext) extends Logging {
@@ -34,8 +37,8 @@ class Scheduler(ssc: StreamingContext) extends Logging {
     null
   }
 
-  val clockClass = System.getProperty(
-    "spark.streaming.clock", "org.apache.spark.streaming.util.SystemClock")
+  val clockClass = Try(ssc.sc.config.getString("spark.streaming.clock")).
+    getOrElse("org.apache.spark.streaming.util.SystemClock")
   val clock = Class.forName(clockClass).newInstance().asInstanceOf[Clock]
   val timer = new RecurringTimer(clock, ssc.graph.batchDuration.milliseconds,
     longTime => generateJobs(new Time(longTime)))

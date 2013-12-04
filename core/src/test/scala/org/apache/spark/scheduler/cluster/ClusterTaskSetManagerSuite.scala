@@ -27,6 +27,8 @@ import org.apache.spark.scheduler._
 import org.apache.spark.executor.TaskMetrics
 import java.nio.ByteBuffer
 import org.apache.spark.util.{Utils, FakeClock}
+import org.apache.spark.util.CoreTestConfig._
+import scala.Some
 
 class FakeDAGScheduler(taskScheduler: FakeClusterScheduler) extends DAGScheduler(taskScheduler) {
   override def taskStarted(task: Task[_], taskInfo: TaskInfo) {
@@ -85,7 +87,7 @@ class ClusterTaskSetManagerSuite extends FunSuite with LocalSparkContext with Lo
   val LOCALITY_WAIT = System.getProperty("spark.locality.wait", "3000").toLong
 
   test("TaskSet with no preferences") {
-    sc = new SparkContext("local", "test")
+    sc = new SparkContext("local", "test", config)
     val sched = new FakeClusterScheduler(sc, ("exec1", "host1"))
     val taskSet = createTaskSet(1)
     val manager = new ClusterTaskSetManager(sched, taskSet)
@@ -111,7 +113,7 @@ class ClusterTaskSetManagerSuite extends FunSuite with LocalSparkContext with Lo
   }
 
   test("multiple offers with no preferences") {
-    sc = new SparkContext("local", "test")
+    sc = new SparkContext("local", "test", config)
     val sched = new FakeClusterScheduler(sc, ("exec1", "host1"))
     val taskSet = createTaskSet(3)
     val manager = new ClusterTaskSetManager(sched, taskSet)
@@ -142,7 +144,7 @@ class ClusterTaskSetManagerSuite extends FunSuite with LocalSparkContext with Lo
   }
 
   test("basic delay scheduling") {
-    sc = new SparkContext("local", "test")
+    sc = new SparkContext("local", "test", config)
     val sched = new FakeClusterScheduler(sc, ("exec1", "host1"), ("exec2", "host2"))
     val taskSet = createTaskSet(4,
       Seq(TaskLocation("host1", "exec1")),
@@ -186,7 +188,7 @@ class ClusterTaskSetManagerSuite extends FunSuite with LocalSparkContext with Lo
   }
 
   test("delay scheduling with fallback") {
-    sc = new SparkContext("local", "test")
+    sc = new SparkContext("local", "test", config)
     val sched = new FakeClusterScheduler(sc,
       ("exec1", "host1"), ("exec2", "host2"), ("exec3", "host3"))
     val taskSet = createTaskSet(5,
@@ -226,7 +228,7 @@ class ClusterTaskSetManagerSuite extends FunSuite with LocalSparkContext with Lo
   }
 
   test("delay scheduling with failed hosts") {
-    sc = new SparkContext("local", "test")
+    sc = new SparkContext("local", "test", config)
     val sched = new FakeClusterScheduler(sc, ("exec1", "host1"), ("exec2", "host2"))
     val taskSet = createTaskSet(3,
       Seq(TaskLocation("host1")),
@@ -258,7 +260,7 @@ class ClusterTaskSetManagerSuite extends FunSuite with LocalSparkContext with Lo
   }
 
   test("task result lost") {
-    sc = new SparkContext("local", "test")
+    sc = new SparkContext("local", "test", config)
     val sched = new FakeClusterScheduler(sc, ("exec1", "host1"))
     val taskSet = createTaskSet(1)
     val clock = new FakeClock
@@ -275,7 +277,7 @@ class ClusterTaskSetManagerSuite extends FunSuite with LocalSparkContext with Lo
   }
 
   test("repeated failures lead to task set abortion") {
-    sc = new SparkContext("local", "test")
+    sc = new SparkContext("local", "test", config)
     val sched = new FakeClusterScheduler(sc, ("exec1", "host1"))
     val taskSet = createTaskSet(1)
     val clock = new FakeClock

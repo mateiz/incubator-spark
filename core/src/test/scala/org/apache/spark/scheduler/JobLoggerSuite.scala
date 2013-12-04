@@ -28,13 +28,20 @@ import org.scalatest.matchers.ShouldMatchers
 import org.apache.spark._
 import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
+import org.apache.spark.util.CoreTestConfig._
+import org.apache.spark.scheduler.SparkListenerTaskEnd
+import scala.Some
+import org.apache.spark.scheduler.SparkListenerJobEnd
+import org.apache.spark.scheduler.SparkListenerStageSubmitted
+import org.apache.spark.scheduler.StageCompleted
+import org.apache.spark.scheduler.SparkListenerJobStart
 
 
 class JobLoggerSuite extends FunSuite with LocalSparkContext with ShouldMatchers {
   val WAIT_TIMEOUT_MILLIS = 10000
 
   test("inner method") {
-    sc = new SparkContext("local", "joblogger")
+    sc = new SparkContext("local", "joblogger", config)
     val joblogger = new JobLogger {
       def createLogWriterTest(jobID: Int) = createLogWriter(jobID)
       def closeLogWriterTest(jobID: Int) = closeLogWriter(jobID)
@@ -82,7 +89,7 @@ class JobLoggerSuite extends FunSuite with LocalSparkContext with ShouldMatchers
   }
   
   test("inner variables") {
-    sc = new SparkContext("local[4]", "joblogger")
+    sc = new SparkContext("local[4]", "joblogger", config)
     val joblogger = new JobLogger {
       override protected def closeLogWriter(jobID: Int) = 
         getJobIDtoPrintWriter.get(jobID).foreach { fileWriter => 
@@ -107,7 +114,7 @@ class JobLoggerSuite extends FunSuite with LocalSparkContext with ShouldMatchers
   
   
   test("interface functions") {
-    sc = new SparkContext("local[4]", "joblogger")
+    sc = new SparkContext("local[4]", "joblogger", config)
     val joblogger = new JobLogger {
       var onTaskEndCount = 0
       var onJobEndCount = 0 

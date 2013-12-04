@@ -26,6 +26,9 @@ import com.typesafe.config.ConfigFactory
 import org.apache.spark.{LocalSparkContext, SparkContext, SparkEnv}
 import org.apache.spark.scheduler.{DirectTaskResult, IndirectTaskResult, TaskResult}
 import org.apache.spark.storage.TaskResultBlockId
+import org.apache.spark.util.CoreTestConfig._
+import org.apache.spark.scheduler.IndirectTaskResult
+import org.apache.spark.storage.TaskResultBlockId
 
 /**
  * Removes the TaskResult from the BlockManager before delegating to a normal TaskResultGetter.
@@ -68,7 +71,7 @@ class TaskResultGetterSuite extends FunSuite with BeforeAndAfter
   before {
     // Use local-cluster mode because results are returned differently when running with the
     // LocalScheduler.
-    sc = new SparkContext("local-cluster[1,1,512]", "test", testConfig)
+    sc = new SparkContext("local-cluster[1,1,512]", "test", testConfig.withFallback(config))
   }
 
   test("handling results smaller than Akka frame size") {

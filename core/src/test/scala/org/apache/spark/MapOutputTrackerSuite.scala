@@ -22,10 +22,10 @@ import org.scalatest.FunSuite
 import akka.actor._
 import org.apache.spark.scheduler.MapStatus
 import org.apache.spark.storage.BlockManagerId
-import org.apache.spark.util.AkkaUtils
+import org.apache.spark.util.{CoreTestConfig, AkkaUtils}
 
 class MapOutputTrackerSuite extends FunSuite with LocalSparkContext {
-
+  import CoreTestConfig.config
   test("compressSize") {
     assert(MapOutputTracker.compressSize(0L) === 0)
     assert(MapOutputTracker.compressSize(1L) === 1)
@@ -48,14 +48,14 @@ class MapOutputTrackerSuite extends FunSuite with LocalSparkContext {
 
   test("master start and stop") {
     val actorSystem = ActorSystem("test")
-    val tracker = new MapOutputTrackerMaster()
+    val tracker = new MapOutputTrackerMaster(config)
     tracker.trackerActor = Left(actorSystem.actorOf(Props(new MapOutputTrackerMasterActor(tracker))))
     tracker.stop()
   }
 
   test("master register and fetch") {
     val actorSystem = ActorSystem("test")
-    val tracker = new MapOutputTrackerMaster()
+    val tracker = new MapOutputTrackerMaster(config)
     tracker.trackerActor = Left(actorSystem.actorOf(Props(new MapOutputTrackerMasterActor(tracker))))
     tracker.registerShuffle(10, 2)
     val compressedSize1000 = MapOutputTracker.compressSize(1000L)
@@ -74,7 +74,7 @@ class MapOutputTrackerSuite extends FunSuite with LocalSparkContext {
 
   test("master register and unregister and fetch") {
     val actorSystem = ActorSystem("test")
-    val tracker = new MapOutputTrackerMaster()
+    val tracker = new MapOutputTrackerMaster(config)
     tracker.trackerActor = Left(actorSystem.actorOf(Props(new MapOutputTrackerMasterActor(tracker))))
     tracker.registerShuffle(10, 2)
     val compressedSize1000 = MapOutputTracker.compressSize(1000L)
@@ -98,12 +98,12 @@ class MapOutputTrackerSuite extends FunSuite with LocalSparkContext {
     val hostname = "localhost"
     val (actorSystem, boundPort) = AkkaUtils.createActorSystem("spark", hostname, 0)
 
-    val masterTracker = new MapOutputTrackerMaster()
+    val masterTracker = new MapOutputTrackerMaster(config)
     masterTracker.trackerActor = Left(actorSystem.actorOf(
         Props(new MapOutputTrackerMasterActor(masterTracker)), "MapOutputTracker"))
 
     val (slaveSystem, _) = AkkaUtils.createActorSystem("spark-slave", hostname, 0)
-    val slaveTracker = new MapOutputTracker()
+    val slaveTracker = new MapOutputTracker(config)
     slaveTracker.trackerActor = Right(slaveSystem.actorSelection(
         "akka.tcp://spark@localhost:" + boundPort + "/user/MapOutputTracker"))
 

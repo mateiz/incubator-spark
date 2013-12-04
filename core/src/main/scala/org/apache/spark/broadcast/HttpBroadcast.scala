@@ -87,9 +87,8 @@ private object HttpBroadcast extends Logging {
   private var serverUri: String = null
   private var bufferSize: Int = 65536
   private var server: HttpServer = null
-
   private val files = new TimeStampedHashSet[String]
-  private val cleaner = new MetadataCleaner(MetadataCleanerType.HTTP_BROADCAST, cleanup)
+  private var cleaner: MetadataCleaner = null
 
   private val httpReadTimeout = TimeUnit.MILLISECONDS.convert(5,TimeUnit.MINUTES).toInt
 
@@ -99,6 +98,7 @@ private object HttpBroadcast extends Logging {
     synchronized {
       if (!initialized) {
         bufferSize = config.getInt("spark.buffer.size")
+        cleaner = new MetadataCleaner(MetadataCleanerType.HTTP_BROADCAST, config, cleanup)
         compress = config.getBoolean("spark.broadcast.compress")
         if (isDriver) {
           createServer()

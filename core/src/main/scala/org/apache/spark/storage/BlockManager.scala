@@ -21,14 +21,15 @@ import java.io.{File, InputStream, OutputStream}
 import java.nio.{ByteBuffer, MappedByteBuffer}
 
 import scala.collection.mutable.{HashMap, ArrayBuffer}
-import scala.util.Random
-
-import akka.actor.{ActorSystem, Cancellable, Props}
+import scala.util.{Try, Random}
 import scala.concurrent.{Await, Future}
-import scala.concurrent.duration.Duration
 import scala.concurrent.duration._
 
+import akka.actor.{ActorSystem, Cancellable, Props}
+
 import it.unimi.dsi.fastutil.io.{FastBufferedOutputStream, FastByteArrayOutputStream}
+
+import com.typesafe.config.Config
 
 import org.apache.spark.{Logging, SparkEnv, SparkException}
 import org.apache.spark.io.CompressionCodec
@@ -43,15 +44,17 @@ private[spark] class BlockManager(
     actorSystem: ActorSystem,
     val master: BlockManagerMaster,
     val defaultSerializer: Serializer,
-    maxMemory: Long)
+    val config: Config)
   extends Logging {
 
   val shuffleBlockManager = new ShuffleBlockManager(this)
+
   val diskBlockManager = new DiskBlockManager(shuffleBlockManager,
     System.getProperty("spark.local.dir", System.getProperty("java.io.tmpdir")))
 
   private val blockInfo = new TimeStampedHashMap[BlockId, BlockInfo]
-
+  val maxMemory: Long = Try(config.getLong("spark.storage.blockmanager.maxmem")).getOrElse((Runtime.getRuntime.maxMemory *
+    config.getDouble("spark.storage.memoryFraction")).toLong)
   private[storage] val memoryStore: BlockStore = new MemoryStore(this, maxMemory)
   private[storage] val diskStore = new DiskStore(this, diskBlockManager)
 
@@ -98,8 +101,10 @@ private[spark] class BlockManager(
 
   var heartBeatTask: Cancellable = null
 
-  private val metadataCleaner = new MetadataCleaner(MetadataCleanerType.BLOCK_MANAGER, this.dropOldNonBroadcastBlocks)
-  private val broadcastCleaner = new MetadataCleaner(MetadataCleanerType.BROADCAST_VARS, this.dropOldBroadcastBlocks)
+  private val metadataCleaner = new MetadataCleaner(MetadataCleanerType.BLOCK_MANAGER, config,
+    this.dropOldNonBroadcastBlocks)
+  private val broadcastCleaner = new MetadataCleaner(MetadataCleanerType.BROADCAST_VARS, config,
+    this.dropOldBroadcastBlocks)
   initialize()
 
   // The compression codec to use. Note that the "lazy" val is necessary because we want to delay
@@ -108,14 +113,6 @@ private[spark] class BlockManager(
   // Executor.updateDependencies. When the BlockManager is initialized, user level jars hasn't been
   // loaded yet.
   private lazy val compressionCodec: CompressionCodec = CompressionCodec.createCodec()
-
-  /**
-   * Construct a BlockManager with a memory limit set based on system properties.
-   */
-  def this(execId: String, actorSystem: ActorSystem, master: BlockManagerMaster,
-           serializer: Serializer) = {
-    this(execId, actorSystem, master, serializer, BlockManager.getMaxMemoryFromSystemProperties)
-  }
 
   /**
    * Initialize the BlockManager. Register to the BlockManagerMaster, and start the
@@ -856,11 +853,6 @@ private[spark] class BlockManager(
 private[spark] object BlockManager extends Logging {
 
   val ID_GENERATOR = new IdGenerator
-
-  def getMaxMemoryFromSystemProperties: Long = {
-    val memoryFraction = System.getProperty("spark.storage.memoryFraction", "0.66").toDouble
-    (Runtime.getRuntime.maxMemory * memoryFraction).toLong
-  }
 
   def getHeartBeatFrequencyFromSystemProperties: Long =
 

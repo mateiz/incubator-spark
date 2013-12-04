@@ -24,6 +24,7 @@ import org.scalatest.matchers.ShouldMatchers
 
 import org.apache.spark.{LocalSparkContext, SparkContext}
 import org.apache.spark.SparkContext._
+import org.apache.spark.util.CoreTestConfig._
 
 class SparkListenerSuite extends FunSuite with LocalSparkContext with ShouldMatchers
     with BeforeAndAfterAll {
@@ -35,7 +36,7 @@ class SparkListenerSuite extends FunSuite with LocalSparkContext with ShouldMatc
   }
 
   test("basic creation of StageInfo") {
-    sc = new SparkContext("local", "DAGSchedulerSuite")
+    sc = new SparkContext("local", "DAGSchedulerSuite", config)
     val listener = new SaveStageInfo
     sc.addSparkListener(listener)
     val rdd1 = sc.parallelize(1 to 100, 4)
@@ -56,7 +57,7 @@ class SparkListenerSuite extends FunSuite with LocalSparkContext with ShouldMatc
   }
 
   test("StageInfo with fewer tasks than partitions") {
-    sc = new SparkContext("local", "DAGSchedulerSuite")
+    sc = new SparkContext("local", "DAGSchedulerSuite", config)
     val listener = new SaveStageInfo
     sc.addSparkListener(listener)
     val rdd1 = sc.parallelize(1 to 100, 4)
@@ -72,7 +73,7 @@ class SparkListenerSuite extends FunSuite with LocalSparkContext with ShouldMatc
   }
 
   test("local metrics") {
-    sc = new SparkContext("local", "DAGSchedulerSuite")
+    sc = new SparkContext("local", "DAGSchedulerSuite", config)
     val listener = new SaveStageInfo
     sc.addSparkListener(listener)
     sc.addSparkListener(new StatsReportListener)
@@ -137,7 +138,7 @@ class SparkListenerSuite extends FunSuite with LocalSparkContext with ShouldMatc
   test("onTaskGettingResult() called when result fetched remotely") {
     // Need to use local cluster mode here, because results are not ever returned through the
     // block manager when using the LocalScheduler.
-    sc = new SparkContext("local-cluster[1,1,512]", "test")
+    sc = new SparkContext("local-cluster[1,1,512]", "test", config)
 
     val listener = new SaveTaskEvents
     sc.addSparkListener(listener)
@@ -159,7 +160,7 @@ class SparkListenerSuite extends FunSuite with LocalSparkContext with ShouldMatc
   test("onTaskGettingResult() not called when result sent directly") {
     // Need to use local cluster mode here, because results are not ever returned through the
     // block manager when using the LocalScheduler.
-    sc = new SparkContext("local-cluster[1,1,512]", "test")
+    sc = new SparkContext("local-cluster[1,1,512]", "test", config)
 
     val listener = new SaveTaskEvents
     sc.addSparkListener(listener)

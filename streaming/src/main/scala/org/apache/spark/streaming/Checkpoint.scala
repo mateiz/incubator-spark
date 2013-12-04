@@ -27,6 +27,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.spark.Logging
 import org.apache.spark.io.CompressionCodec
 import org.apache.spark.util.MetadataCleaner
+import com.typesafe.config.Config
 
 
 private[streaming]
@@ -41,13 +42,15 @@ class Checkpoint(@transient ssc: StreamingContext, val checkpointTime: Time)
   val checkpointDir = ssc.checkpointDir
   val checkpointDuration = ssc.checkpointDuration
   val pendingTimes = ssc.scheduler.jobManager.getPendingTimes()
-  val delaySeconds = MetadataCleaner.getDelaySeconds
+  val delaySeconds = MetadataCleaner.getDelaySeconds(ssc.sc.config)
+  val sparkConf: String = ssc.sc.config.root().render()
 
   def validate() {
     assert(master != null, "Checkpoint.master is null")
     assert(framework != null, "Checkpoint.framework is null")
     assert(graph != null, "Checkpoint.graph is null")
     assert(checkpointTime != null, "Checkpoint.checkpointTime is null")
+    assert(sparkConf != null, "SparkConf is null")
     logInfo("Checkpoint for time " + checkpointTime + " validated")
   }
 }
@@ -64,7 +67,6 @@ class CheckpointWriter(checkpointDir: String) extends Logging {
   private val bakFile = new Path(file.getParent, file.getName + ".bk")
 
   private var stopped = false
-
   val conf = new Configuration()
   var fs = file.getFileSystem(conf)
   val maxAttempts = 3

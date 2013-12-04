@@ -178,7 +178,8 @@ object SparkEnv extends Logging {
     val blockManagerMaster = new BlockManagerMaster(registerOrLookup(
       "BlockManagerMaster",
       new BlockManagerMasterActor(isLocal)))
-    val blockManager = new BlockManager(executorId, actorSystem, blockManagerMaster, serializer)
+    val blockManager = new BlockManager(executorId, actorSystem, blockManagerMaster, serializer,
+      config)
 
     val connectionManager = blockManager.connectionManager
 
@@ -189,9 +190,9 @@ object SparkEnv extends Logging {
     // Have to assign trackerActor after initialization as MapOutputTrackerActor
     // requires the MapOutputTracker itself
     val mapOutputTracker =  if (isDriver) {
-      new MapOutputTrackerMaster()
+      new MapOutputTrackerMaster(config)
     } else {
-      new MapOutputTracker()
+      new MapOutputTracker(config)
     }
     mapOutputTracker.trackerActor = registerOrLookup(
       "MapOutputTracker",

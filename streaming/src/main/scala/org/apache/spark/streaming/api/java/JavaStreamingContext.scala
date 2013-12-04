@@ -30,6 +30,7 @@ import akka.actor.Props
 import akka.actor.SupervisorStrategy
 import akka.zeromq.Subscribe
 import akka.util.ByteString
+import com.typesafe.config.{Config, ConfigFactory}
 
 import twitter4j.auth.Authorization
 
@@ -54,6 +55,8 @@ class JavaStreamingContext(val ssc: StreamingContext) {
   // - Test to/from Hadoop functions
   // - Support creating and registering InputStreams
 
+
+  def this(config: Config) = this(new StreamingContext(config))
 
   /**
    * Creates a StreamingContext.
