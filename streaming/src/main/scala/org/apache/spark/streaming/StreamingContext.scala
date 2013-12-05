@@ -26,16 +26,12 @@ import org.apache.spark.streaming.dstream._
 import org.apache.spark._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
-import org.apache.spark.util.MetadataCleaner
 import org.apache.spark.util.ConfigUtils._
 import org.apache.spark.streaming.receivers._
 
 import scala.collection.mutable.Queue
 import scala.collection.Map
 import scala.reflect.ClassTag
-import scala.util.Failure
-import scala.util.Try
-import scala.util.Success
 
 import java.io.InputStream
 import java.util.concurrent.atomic.AtomicInteger
@@ -106,14 +102,6 @@ class StreamingContext private (
       "both SparkContext and checkpoint as null")
   }
 
-//  if(cp_ != null && cp_.delaySeconds >= 0 && MetadataCleaner.getDelaySeconds(sc.config) < 0) {
-//    // MetadataCleaner.setDelaySeconds(cp_.delaySeconds, cp_.sparkConf)
-//  }
-
-//  if (MetadataCleaner.getDelaySeconds(sc.config) < 0) {
-//    throw new SparkException("Spark Streaming cannot be used without setting spark.cleaner.ttl; "
-//      + "set this property before creating a SparkContext (use SPARK_JAVA_OPTS for the shell)")
-//  }
 
   protected[streaming] val isCheckpointPresent = (cp_ != null)
 
@@ -586,14 +574,7 @@ object StreamingContext {
       master: String,
       appName: String,
       extraConfig: Config): SparkContext = {
-    // Set the default cleaner delay to an hour if not already set.
-    // This should be sufficient for even 1 second interval.
-    val conf: Config = Try(MetadataCleaner.getDelaySeconds(extraConfig)) match {
-      case Success(_) => extraConfig
-      case Failure(_) => extraConfig.
-        withFallback(ConfigFactory.parseString("spark.cleaner.ttl = 3600"))
-    }
-    new SparkContext(master, appName, conf)
+    new SparkContext(master, appName, extraConfig)
   }
 
   protected[streaming] def rddToFileName[T](prefix: String, suffix: String, time: Time): String = {

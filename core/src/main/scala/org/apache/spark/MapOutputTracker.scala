@@ -52,7 +52,7 @@ private[spark] class MapOutputTrackerMasterActor(tracker: MapOutputTrackerMaster
   }
 }
 
-private[spark] class MapOutputTracker(config: Config) extends Logging {
+private[spark] class MapOutputTracker(settings: SparkEnv.Settings) extends Logging {
 
   private val timeout = Duration.create(System.getProperty("spark.akka.askTimeout", "10").toLong, "seconds")
 
@@ -67,7 +67,7 @@ private[spark] class MapOutputTracker(config: Config) extends Logging {
   protected val epochLock = new java.lang.Object
 
   private val metadataCleaner =
-    new MetadataCleaner(MetadataCleanerType.MAP_OUTPUT_TRACKER, config, this.cleanup)
+    new MetadataCleaner(MetadataCleanerType.MAP_OUTPUT_TRACKER, settings.cleanerTtl, this.cleanup)
 
   // Send a message to the trackerActor and get its result within a default timeout, or
   // throw a SparkException if this fails.
@@ -187,7 +187,8 @@ private[spark] class MapOutputTracker(config: Config) extends Logging {
   }
 }
 
-private[spark] class MapOutputTrackerMaster(config: Config) extends MapOutputTracker(config) {
+private[spark] class MapOutputTrackerMaster(settings: SparkEnv.Settings)
+  extends MapOutputTracker(settings) {
 
   // Cache a serialized version of the output statuses for each shuffle to send them out faster
   private var cacheEpoch = epoch

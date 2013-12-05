@@ -34,7 +34,8 @@ abstract class Broadcast[T](private[spark] val id: Long) extends Serializable {
 }
 
 private[spark]
-class BroadcastManager(val _isDriver: Boolean, config: Config) extends Logging with Serializable {
+class BroadcastManager(val _isDriver: Boolean, settings: SparkEnv.Settings)
+  extends Logging with Serializable {
 
   private var initialized = false
   private var broadcastFactory: BroadcastFactory = null
@@ -47,13 +48,13 @@ class BroadcastManager(val _isDriver: Boolean, config: Config) extends Logging w
   private def initialize() {
     synchronized {
       if (!initialized) {
-        val broadcastFactoryClass = config.getString("spark.broadcast.factory")
+        val broadcastFactoryClass = settings.broadCastFactory
 
         broadcastFactory =
           Class.forName(broadcastFactoryClass).newInstance.asInstanceOf[BroadcastFactory]
 
         // Initialize appropriate BroadcastFactory and BroadcastObject
-        broadcastFactory.initialize(isDriver, config)
+        broadcastFactory.initialize(isDriver, settings)
 
         initialized = true
       }

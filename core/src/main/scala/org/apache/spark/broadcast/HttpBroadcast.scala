@@ -65,8 +65,8 @@ private[spark] class HttpBroadcast[T](@transient var value_ : T, isLocal: Boolea
 }
 
 private[spark] class HttpBroadcastFactory extends BroadcastFactory {
-  def initialize(isDriver: Boolean, config: Config) {
-    HttpBroadcast.initialize(isDriver, config)
+  def initialize(isDriver: Boolean, settings: SparkEnv.Settings) {
+    HttpBroadcast.initialize(isDriver, settings)
   }
 
   def newBroadcast[T](value_ : T, isLocal: Boolean, id: Long) =
@@ -94,17 +94,18 @@ private object HttpBroadcast extends Logging {
 
   private lazy val compressionCodec = CompressionCodec.createCodec()
 
-  def initialize(isDriver: Boolean, config: Config) {
+  def initialize(isDriver: Boolean, settings: SparkEnv.Settings) {
     synchronized {
       if (!initialized) {
-        bufferSize = config.getInt("spark.buffer.size")
-        cleaner = new MetadataCleaner(MetadataCleanerType.HTTP_BROADCAST, config, cleanup)
-        compress = config.getBoolean("spark.broadcast.compress")
+        bufferSize = settings.bufferSize
+        cleaner = new MetadataCleaner(MetadataCleanerType.HTTP_BROADCAST, settings.cleanerTtl,
+          cleanup)
+        compress = settings.compressBroadcast
         if (isDriver) {
           createServer()
           configUpdates = Map("spark.httpBroadcast.uri" -> serverUri)
         } else {
-          serverUri = config.getString("spark.httpBroadcast.uri")
+          serverUri = settings.httpBroadcastURI
         }
         initialized = true
       }

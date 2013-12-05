@@ -22,17 +22,17 @@ import scala.collection.mutable.{Map, HashMap}
 import org.scalatest.FunSuite
 import org.scalatest.BeforeAndAfter
 
-import org.apache.spark.LocalSparkContext
-import org.apache.spark.MapOutputTrackerMaster
-import org.apache.spark.SparkContext
-import org.apache.spark.Partition
-import org.apache.spark.TaskContext
-import org.apache.spark.{Dependency, ShuffleDependency, OneToOneDependency}
-import org.apache.spark.{FetchFailed, Success, TaskEndReason}
+import org.apache.spark._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.scheduler.SchedulingMode.SchedulingMode
 import org.apache.spark.storage.{BlockId, BlockManagerId, BlockManagerMaster}
 import org.apache.spark.util.CoreTestConfig
+import org.apache.spark.scheduler.TaskSetFailed
+import org.apache.spark.FetchFailed
+import org.apache.spark.scheduler.CompletionEvent
+import org.apache.spark.scheduler.ExecutorLost
+import scala.Tuple2
+import org.apache.spark.scheduler.JobSubmitted
 
 /**
  * Tests for DAGScheduler. These tests directly call the event processing functions in DAGScheduler
@@ -100,7 +100,7 @@ class DAGSchedulerSuite extends FunSuite with BeforeAndAfter with LocalSparkCont
     taskSets.clear()
     cacheLocations.clear()
     results.clear()
-    mapOutputTracker = new MapOutputTrackerMaster(config)
+    mapOutputTracker = new MapOutputTrackerMaster(new SparkEnv.Settings(config))
     scheduler = new DAGScheduler(taskScheduler, mapOutputTracker, blockManagerMaster, sc.env) {
       override def runLocally(job: ActiveJob) {
         // don't bother with the thread while unit testing

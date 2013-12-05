@@ -18,6 +18,7 @@
 package org.apache.spark.broadcast
 
 import com.typesafe.config.Config
+import org.apache.spark.SparkEnv
 
 /**
  * An interface for all the broadcast implementations in Spark (to allow
@@ -26,7 +27,7 @@ import com.typesafe.config.Config
  * entire Spark job.
  */
 private[spark] trait BroadcastFactory {
-  def initialize(isDriver: Boolean, config: Config): Unit
+  def initialize(isDriver: Boolean, settings: SparkEnv.Settings): Unit
   def newBroadcast[T](value: T, isLocal: Boolean, id: Long): Broadcast[T]
   def stop(): Unit
   def configUpdates: collection.Map[String, Any]

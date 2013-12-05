@@ -142,6 +142,11 @@ class SparkContext(
     isLocal)
   SparkEnv.set(env)
 
+  /**
+   * INTERNAL API
+   */
+  private[spark] def settings = env.settings
+
   // Used to store a URL for each static file/jar together with the file's local timestamp
   private[spark] val addedFiles = HashMap[String, Long]()
   private[spark] val addedJars = HashMap[String, Long]()
@@ -149,7 +154,7 @@ class SparkContext(
   // Keeps track of all persisted RDDs
   private[spark] val persistentRdds = new TimeStampedHashMap[Int, RDD[_]]
   private[spark] val metadataCleaner = new MetadataCleaner(MetadataCleanerType.SPARK_CONTEXT,
-    config, this.cleanup)
+    settings.cleanerTtl, this.cleanup)
 
   // Initialize the Spark UI
   private[spark] val ui = new SparkUI(this)

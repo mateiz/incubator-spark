@@ -38,13 +38,14 @@ import org.apache.spark.serializer.Serializer
 import org.apache.spark.util._
 
 import sun.nio.ch.DirectBuffer
+import org.apache.spark.SparkEnv.Settings
 
 private[spark] class BlockManager(
     executorId: String,
     actorSystem: ActorSystem,
     val master: BlockManagerMaster,
     val defaultSerializer: Serializer,
-    val config: Config)
+    val settings: SparkEnv.Settings)
   extends Logging {
 
   val shuffleBlockManager = new ShuffleBlockManager(this)
@@ -53,8 +54,7 @@ private[spark] class BlockManager(
     System.getProperty("spark.local.dir", System.getProperty("java.io.tmpdir")))
 
   private val blockInfo = new TimeStampedHashMap[BlockId, BlockInfo]
-  val maxMemory: Long = Try(config.getLong("spark.storage.blockmanager.maxmem")).getOrElse((Runtime.getRuntime.maxMemory *
-    config.getDouble("spark.storage.memoryFraction")).toLong)
+  val maxMemory: Long = settings.maxMemBlockManager
   private[storage] val memoryStore: BlockStore = new MemoryStore(this, maxMemory)
   private[storage] val diskStore = new DiskStore(this, diskBlockManager)
 
@@ -101,9 +101,9 @@ private[spark] class BlockManager(
 
   var heartBeatTask: Cancellable = null
 
-  private val metadataCleaner = new MetadataCleaner(MetadataCleanerType.BLOCK_MANAGER, config,
+  private val metadataCleaner = new MetadataCleaner(MetadataCleanerType.BLOCK_MANAGER, settings.cleanerTtl,
     this.dropOldNonBroadcastBlocks)
-  private val broadcastCleaner = new MetadataCleaner(MetadataCleanerType.BROADCAST_VARS, config,
+  private val broadcastCleaner = new MetadataCleaner(MetadataCleanerType.BROADCAST_VARS, settings.cleanerTtl,
     this.dropOldBroadcastBlocks)
   initialize()
 

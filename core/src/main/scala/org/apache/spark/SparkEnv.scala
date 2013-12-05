@@ -58,7 +58,8 @@ class SparkEnv (
     val connectionManager: ConnectionManager,
     val httpFileServer: HttpFileServer,
     val sparkFilesDir: String,
-    val metricsSystem: MetricsSystem) {
+    val metricsSystem: MetricsSystem,
+    val settings: SparkEnv.Settings) {
 
   private val pythonWorkers = mutable.HashMap[(String, Map[String, String]), PythonWorkerFactory]()
 
@@ -134,7 +135,9 @@ object SparkEnv extends Logging {
       isLocal: Boolean): SparkEnv = {
     import org.apache.spark.util.ConfigUtils._
 
+    val settings: Settings = new Settings(config)
     val (akkaHost, akkaPort) = akkaHostPortFunction
+
     val (actorSystem, boundPort) = AkkaUtils.createActorSystem("spark", akkaHost, akkaPort, config)
 
     val driverConfig = if (isDriver) {
@@ -174,25 +177,24 @@ object SparkEnv extends Logging {
         Right(actorSystem.actorSelection(url))
       }
     }
-
     val blockManagerMaster = new BlockManagerMaster(registerOrLookup(
       "BlockManagerMaster",
       new BlockManagerMasterActor(isLocal)))
-    val blockManager = new BlockManager(executorId, actorSystem, blockManagerMaster, serializer,
-      config)
 
+    val blockManager = new BlockManager(executorId, actorSystem, blockManagerMaster, serializer,
+      settings)
     val connectionManager = blockManager.connectionManager
 
-    val broadcastManager = new BroadcastManager(isDriver, config)
+    val broadcastManager = new BroadcastManager(isDriver, settings)
 
     val cacheManager = new CacheManager(blockManager)
 
     // Have to assign trackerActor after initialization as MapOutputTrackerActor
     // requires the MapOutputTracker itself
     val mapOutputTracker =  if (isDriver) {
-      new MapOutputTrackerMaster(config)
+      new MapOutputTrackerMaster(settings)
     } else {
-      new MapOutputTracker(config)
+      new MapOutputTracker(settings)
     }
     mapOutputTracker.trackerActor = registerOrLookup(
       "MapOutputTracker",
@@ -244,6 +246,28 @@ object SparkEnv extends Logging {
       connectionManager,
       httpFileServer,
       sparkFilesDir,
-      metricsSystem)
+      metricsSystem,
+      settings)
+  }
+
+  /**
+   * Optional configurations are defined as def for they will raise exception which can be
+   * handled and the optional path be executed.
+   */
+  private[spark] class Settings(conf: Config) {
+
+    import conf._
+
+    final val memoryFraction = getDouble("spark.storage.memoryFraction")
+
+    final def maxMemBlockManager = Try(getLong("spark.storage.blockmanager.maxmem"))
+      .getOrElse((Runtime.getRuntime.maxMemory * memoryFraction).toLong)
+
+    final val cleanerTtl = getInt("spark.cleaner.ttl")
+    final val bufferSize = getInt("spark.buffer.size")
+    final val compressBroadcast = getBoolean("spark.broadcast.compress")
+    final val httpBroadcastURI = getString("spark.httpBroadcast.uri")
+    final val broadCastFactory = getString("spark.broadcast.factory")
+    final val blockSize = getInt("spark.broadcast.blockSize")
   }
 }

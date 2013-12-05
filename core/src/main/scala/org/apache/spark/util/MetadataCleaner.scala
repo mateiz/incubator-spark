@@ -26,11 +26,10 @@ import scala.util.Try
 /**
  * Runs a timer task to periodically clean up metadata (e.g. old files or hashtable entries)
  */
-class MetadataCleaner(cleanerType: MetadataCleanerType.MetadataCleanerType, config: Config,
+class MetadataCleaner(cleanerType: MetadataCleanerType.MetadataCleanerType, delaySeconds: Int,
                       cleanupFunc: (Long) => Unit) extends Logging {
 
   val name = cleanerType.toString
-  private val delaySeconds = MetadataCleaner.getDelaySeconds(config)
   private val periodSeconds = math.max(10, delaySeconds / 10)
   private val timer = new Timer(name + " cleanup timer", true)
 
@@ -66,21 +65,3 @@ object MetadataCleanerType extends Enumeration {
 
   def systemProperty(which: MetadataCleanerType.MetadataCleanerType) = "spark.cleaner.ttl." + which.toString
 }
-
-object MetadataCleaner {
-
-  // using only sys props for now : so that workers can also get to it while preserving earlier behavior.
-  def getDelaySeconds(config: Config) = Try(config.getInt("spark.cleaner.ttl")).getOrElse(3600)
-
-  def getDelaySeconds(cleanerType: MetadataCleanerType.MetadataCleanerType, config: Config): Int = {
-    Try(config.getInt(MetadataCleanerType.systemProperty(cleanerType))).getOrElse(getDelaySeconds(config))
-  }
-
-//
-//  def setDelaySeconds(cleanerType: MetadataCleanerType.MetadataCleanerType, delay: Int) {
-//    System.setProperty(MetadataCleanerType.systemProperty(cleanerType), delay.toString)
-//  }
-//
-
-}
-

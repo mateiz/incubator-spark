@@ -36,6 +36,7 @@ import org.apache.spark.storage.ShuffleBlockId
 import org.apache.spark.storage.TestBlockId
 import org.apache.spark.storage.BroadcastBlockId
 import org.apache.spark.storage.RDDBlockId
+import org.apache.spark.SparkEnv
 
 class BlockManagerSuite extends FunSuite with BeforeAndAfter with PrivateMethodTester {
   var store: BlockManager = null
@@ -54,8 +55,9 @@ class BlockManagerSuite extends FunSuite with BeforeAndAfter with PrivateMethodT
   implicit def StringToBlockId(value: String): BlockId = new TestBlockId(value)
   def rdd(rddId: Int, splitId: Int) = RDDBlockId(rddId, splitId)
 
-  def configure(mem: Int) = ConfigFactory.parseString(s"spark.storage.blockmanager.maxmem = $mem").
-    withFallback(config)
+  def configure(mem: Int) = new SparkEnv.Settings(ConfigFactory.
+    parseString(s"spark.storage.blockmanager.maxmem = $mem").
+    withFallback(config))
 
   before {
     val (actorSystem, boundPort) = AkkaUtils.createActorSystem("test", "localhost", 0)

@@ -42,7 +42,7 @@ class Checkpoint(@transient ssc: StreamingContext, val checkpointTime: Time)
   val checkpointDir = ssc.checkpointDir
   val checkpointDuration = ssc.checkpointDuration
   val pendingTimes = ssc.scheduler.jobManager.getPendingTimes()
-  val delaySeconds = MetadataCleaner.getDelaySeconds(ssc.sc.config)
+  val delaySeconds = ssc.sc.settings.cleanerTtl
   val sparkConf: String = ssc.sc.config.root().render()
 
   def validate() {
