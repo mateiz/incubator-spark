@@ -135,16 +135,26 @@ object SparkEnv extends Logging {
       isLocal: Boolean): SparkEnv = {
     import org.apache.spark.util.ConfigUtils._
 
-    val settings: Settings = new Settings(config)
+    val httpFileServer = new HttpFileServer()
+    httpFileServer.initialize()
+    val conf = ConfigFactory.
+      parseString(s"""spark.fileserver.uri = "${httpFileServer.serverUri}" """).withFallback(config)
+
+    var settings: Settings = new Settings(conf)
     val (akkaHost, akkaPort) = akkaHostPortFunction
 
-    val (actorSystem, boundPort) = AkkaUtils.createActorSystem("spark", akkaHost, akkaPort, config)
+    val (actorSystem, boundPort) = AkkaUtils.createActorSystem("spark", akkaHost, akkaPort, settings)
 
     val driverConfig = if (isDriver) {
       Map("spark.driver.host" -> akkaHost, "spark.driver.port" -> boundPort)
     } else {
       Map.empty[String, Any]
     }
+
+    val broadcastManager = new BroadcastManager(isDriver, settings)
+    val mergedConfig = conf ++ driverConfig ++ broadcastManager.configUpdates
+
+    settings = new Settings(mergedConfig) //Augmenting config with new settings.
 
     val classLoader = Thread.currentThread.getContextClassLoader
 
@@ -157,11 +167,9 @@ object SparkEnv extends Logging {
 
     val serializerManager = new SerializerManager
 
-    val serializer = serializerManager.setDefault(
-      System.getProperty("spark.serializer", "org.apache.spark.serializer.JavaSerializer"))
+    val serializer = serializerManager.setDefault(settings.serializer)
 
-    val closureSerializer = serializerManager.get(
-      System.getProperty("spark.closure.serializer", "org.apache.spark.serializer.JavaSerializer"))
+    val closureSerializer = serializerManager.get(settings.closureSerializer)
 
     def registerOrLookup(name: String, newActor: => Actor): Either[ActorRef, ActorSelection] = {
       if (isDriver) {
@@ -185,7 +193,7 @@ object SparkEnv extends Logging {
       settings)
     val connectionManager = blockManager.connectionManager
 
-    val broadcastManager = new BroadcastManager(isDriver, settings)
+
 
     val cacheManager = new CacheManager(blockManager)
 
@@ -203,10 +211,6 @@ object SparkEnv extends Logging {
     val shuffleFetcher = instantiateClass[ShuffleFetcher](
       "spark.shuffle.fetcher", "org.apache.spark.BlockStoreShuffleFetcher")
 
-    val httpFileServer = new HttpFileServer()
-    httpFileServer.initialize()
-    System.setProperty("spark.fileserver.uri", httpFileServer.serverUri)
-
     val metricsSystem = if (isDriver) {
       MetricsSystem.createMetricsSystem("driver")
     } else {
@@ -222,14 +226,12 @@ object SparkEnv extends Logging {
     } else {
       "."
     }
-
     // Warn about deprecated spark.cache.class property
     if (System.getProperty("spark.cache.class") != null) {
       logWarning("The spark.cache.class property is no longer being used! Specify storage " +
-        "levels using the RDD.persist() method instead.")
+      "levels using the RDD.persist() method instead.")
     }
 
-    val mergedConfig = config ++ driverConfig ++ broadcastManager.configUpdates
 
     new SparkEnv(
       mergedConfig,
@@ -252,22 +254,39 @@ object SparkEnv extends Logging {
 
   /**
    * Optional configurations are defined as def for they will raise exception which can be
-   * handled and the optional path be executed.
+   * handled and the optional path be taken.
    */
-  private[spark] class Settings(conf: Config) {
+  private[spark] class Settings(val conf: Config) {
 
     import conf._
 
-    final val memoryFraction = getDouble("spark.storage.memoryFraction")
+    final val memoryFraction = Try(getDouble("spark.storage.memoryFraction")).getOrElse(0.66)
 
     final def maxMemBlockManager = Try(getLong("spark.storage.blockmanager.maxmem"))
       .getOrElse((Runtime.getRuntime.maxMemory * memoryFraction).toLong)
 
-    final val cleanerTtl = getInt("spark.cleaner.ttl")
-    final val bufferSize = getInt("spark.buffer.size")
-    final val compressBroadcast = getBoolean("spark.broadcast.compress")
-    final val httpBroadcastURI = getString("spark.httpBroadcast.uri")
-    final val broadCastFactory = getString("spark.broadcast.factory")
-    final val blockSize = getInt("spark.broadcast.blockSize")
+    final val cleanerTtl = Try(getInt("spark.cleaner.ttl")).getOrElse(3600)
+    final val bufferSize = Try(getInt("spark.buffer.size")).getOrElse(65536)
+    final val compressBroadcast = Try(getBoolean("spark.broadcast.compress")).getOrElse(true)
+    final val httpBroadcastURI = Try(getString("spark.httpBroadcast.uri")).getOrElse("")
+    final val broadCastFactory = Try(getString("spark.broadcast.factory")).
+      getOrElse("org.apache.spark.broadcast.HttpBroadcastFactory")
+
+    final val blockSize = Try(getInt("spark.broadcast.blockSize")).getOrElse(4096)
+    final val closureSerializer = Try(getString("spark.closure.serializer")).
+      getOrElse("org.apache.spark.serializer.JavaSerializer")
+
+    final val serializer = Try(getString("spark.serializer")).
+      getOrElse("org.apache.spark.serializer.JavaSerializer")
+
+    final val akkaThreads = Try(getInt("spark.akka.threads")).getOrElse(4)
+    final val akkaBatchSize = Try(getInt("spark.akka.batchSize")).getOrElse(15)
+    final val akkaTimeout = Try(getInt("spark.akka.timeout")).getOrElse(60)
+    final val akkaFrameSize = Try(getInt("spark.akka.frameSize")).getOrElse(10)
+    final val lifecycleEvents = if (Try(getBoolean("spark.akka.logLifecycleEvents"))
+      .getOrElse(false)) "on" else "off"
+    final val akkaHeartBeatPauses = Try(getInt("spark.akka.heartbeat.pauses")).getOrElse(600)
+    final val akkaFailureDetector = Try(getDouble("spark.akka.failure-detector.threshold")).getOrElse(300.0)
+    final val akkaHeartBeatInterval = Try(getInt("spark.akka.heartbeat.interval")).getOrElse(1000)
   }
 }

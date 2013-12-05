@@ -24,8 +24,13 @@ import com.esotericsoftware.kryo.Kryo
 import org.scalatest.FunSuite
 import org.apache.spark.SharedSparkContext
 import org.apache.spark.serializer.KryoTest._
+import com.typesafe.config.ConfigFactory
 
 class KryoSerializerSuite extends FunSuite with SharedSparkContext {
+
+  override def conf = ConfigFactory.
+    parseString("spark.serializer = org.apache.spark.serializer.KryoSerializer")
+
   test("basic types") {
     val ser = (new KryoSerializer).newInstance()
     def check[T](t: T) {
@@ -188,7 +193,6 @@ class KryoSerializerSuite extends FunSuite with SharedSparkContext {
   }
 
   override def beforeAll() {
-    System.setProperty("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
     System.setProperty("spark.kryo.registrator", classOf[MyRegistrator].getName)
     super.beforeAll()
   }
@@ -196,7 +200,6 @@ class KryoSerializerSuite extends FunSuite with SharedSparkContext {
   override def afterAll() {
     super.afterAll()
     System.clearProperty("spark.kryo.registrator")
-    System.clearProperty("spark.serializer")
   }
 }
 

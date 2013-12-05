@@ -22,10 +22,10 @@ import java.nio.ByteBuffer
 import akka.actor._
 import akka.remote._
 
-import org.apache.spark.Logging
+import org.apache.spark.{SparkEnv, Logging}
 import org.apache.spark.TaskState.TaskState
 import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages._
-import org.apache.spark.util.{Utils, AkkaUtils}
+import org.apache.spark.util.{ConfigUtils, Utils, AkkaUtils}
 
 private[spark] class CoarseGrainedExecutorBackend(
     driverUrl: String,
@@ -98,7 +98,9 @@ private[spark] object CoarseGrainedExecutorBackend {
 
     // Create a new ActorSystem to run the backend, because we can't create a SparkEnv / Executor
     // before getting started with all our system properties, etc
-    val (actorSystem, boundPort) = AkkaUtils.createActorSystem("sparkExecutor", hostname, 0)
+    val (actorSystem, boundPort) = AkkaUtils.createActorSystem("sparkExecutor", hostname, 0,
+    new SparkEnv.Settings(ConfigUtils.loadConfig()))
+
     // set it
     val sparkHostPort = hostname + ":" + boundPort
     actorSystem.actorOf(

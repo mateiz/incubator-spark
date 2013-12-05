@@ -27,13 +27,13 @@ import scala.concurrent.duration._
 import akka.actor._
 import akka.remote.{ DisassociatedEvent, RemotingLifecycleEvent}
 
-import org.apache.spark.{SparkException, Logging}
+import org.apache.spark.{SparkEnv, SparkException, Logging}
 import org.apache.spark.deploy.{ExecutorDescription, ExecutorState}
 import org.apache.spark.deploy.DeployMessages._
 import org.apache.spark.deploy.master.Master
 import org.apache.spark.deploy.worker.ui.WorkerWebUI
 import org.apache.spark.metrics.MetricsSystem
-import org.apache.spark.util.{Utils, AkkaUtils}
+import org.apache.spark.util.{ConfigUtils, Utils, AkkaUtils}
 import org.apache.spark.deploy.DeployMessages.WorkerStateResponse
 import org.apache.spark.deploy.DeployMessages.RegisterWorkerFailed
 import org.apache.spark.deploy.DeployMessages.KillExecutor
@@ -285,7 +285,8 @@ private[spark] object Worker {
     : (ActorSystem, Int) = {
     // The LocalSparkCluster runs multiple local sparkWorkerX actor systems
     val systemName = "sparkWorker" + workerNumber.map(_.toString).getOrElse("")
-    val (actorSystem, boundPort) = AkkaUtils.createActorSystem(systemName, host, port)
+    val (actorSystem, boundPort) = AkkaUtils.createActorSystem(systemName, host, port,
+      new SparkEnv.Settings(ConfigUtils.loadConfig()))
     actorSystem.actorOf(Props(classOf[Worker], host, boundPort, webUiPort, cores, memory,
       masterUrls, workDir), name = "Worker")
     (actorSystem, boundPort)

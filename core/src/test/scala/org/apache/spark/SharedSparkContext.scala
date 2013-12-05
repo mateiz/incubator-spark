@@ -27,9 +27,10 @@ trait SharedSparkContext extends BeforeAndAfterAll { self: Suite =>
   @transient private var _sc: SparkContext = _
 
   def sc: SparkContext = _sc
+  def conf = CoreTestConfig.config
 
   override def beforeAll() {
-    _sc = new SparkContext("local", "test", CoreTestConfig.config)
+    _sc = new SparkContext("local", "test", conf)
     super.beforeAll()
   }
 

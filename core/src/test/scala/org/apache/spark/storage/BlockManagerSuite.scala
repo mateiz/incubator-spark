@@ -32,10 +32,6 @@ import org.scalatest.time.SpanSugar._
 import org.apache.spark.util._
 import org.apache.spark.serializer.{JavaSerializer, KryoSerializer}
 import com.typesafe.config.ConfigFactory
-import org.apache.spark.storage.ShuffleBlockId
-import org.apache.spark.storage.TestBlockId
-import org.apache.spark.storage.BroadcastBlockId
-import org.apache.spark.storage.RDDBlockId
 import org.apache.spark.SparkEnv
 
 class BlockManagerSuite extends FunSuite with BeforeAndAfter with PrivateMethodTester {
@@ -60,7 +56,9 @@ class BlockManagerSuite extends FunSuite with BeforeAndAfter with PrivateMethodT
     withFallback(config))
 
   before {
-    val (actorSystem, boundPort) = AkkaUtils.createActorSystem("test", "localhost", 0)
+    val (actorSystem, boundPort) = AkkaUtils.createActorSystem("test", "localhost", 0,
+      new SparkEnv.Settings(config))
+
     this.actorSystem = actorSystem
 
     master = new BlockManagerMaster(

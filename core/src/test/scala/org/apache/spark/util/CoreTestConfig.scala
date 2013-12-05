@@ -2,6 +2,10 @@ package org.apache.spark.util
 
 import com.typesafe.config.ConfigFactory
 
+/**
+ * Default config for tests in core.
+ * TODO decide if we should remove it and let everything fallback to default.
+ */
 object CoreTestConfig {
    val config = ConfigFactory.parseString(
      """

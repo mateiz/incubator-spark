@@ -31,6 +31,7 @@ import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.StreamingContext.toPairDStreamFunctions
 import org.apache.spark.streaming.receivers.Receiver
 import org.apache.spark.util.{AkkaUtils, ConfigUtils}
+import org.apache.spark.SparkEnv
 
 case class SubscribeReceiver(receiverActor: ActorRef)
 case class UnsubscribeReceiver(receiverActor: ActorRef)
@@ -116,7 +117,8 @@ object FeederActor {
     val Seq(host, port) = args.toSeq
 
 
-    val actorSystem = AkkaUtils.createActorSystem("test", host, port.toInt)._1
+    val actorSystem = AkkaUtils.createActorSystem("test", host, port.toInt,
+      new SparkEnv.Settings(ConfigUtils.loadConfig()))._1
     val feeder = actorSystem.actorOf(Props[FeederActor], "FeederActor")
 
     println("Feeder started as:" + feeder)

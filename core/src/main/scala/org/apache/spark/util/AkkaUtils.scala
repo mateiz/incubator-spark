@@ -24,6 +24,7 @@ import akka.actor.{ActorSystem, ExtendedActorSystem}
 import akka.remote.RemoteActorRefProvider
 
 import com.typesafe.config.{Config, ConfigFactory}
+import org.apache.spark.SparkEnv
 
 /**
  * Various utility classes for working with Akka.
@@ -38,16 +39,8 @@ private[spark] object AkkaUtils {
    * host + port, if the system name is incorrect, Akka will drop the message.
    */
   def createActorSystem(name: String, host: String, port: Int, 
-    config: Config = ConfigUtils.loadConfig()): (ActorSystem, Int) = {
-    val akkaThreads = config.getInt("spark.akka.threads")
-    val akkaBatchSize = config.getInt("spark.akka.batchSize")
-    val akkaTimeout = config.getInt("spark.akka.timeout")
-    val akkaFrameSize = config.getInt("spark.akka.frameSize")
-    val lifecycleEvents = if (config.getBoolean("spark.akka.logLifecycleEvents")) "on" else "off"
-    val akkaHeartBeatPauses = config.getInt("spark.akka.heartbeat.pauses")
-    val akkaFailureDetector = config.getDouble("spark.akka.failure-detector.threshold")
-    val akkaHeartBeatInterval = config.getInt("spark.akka.heartbeat.interval")
-
+    settings: SparkEnv.Settings): (ActorSystem, Int) = {
+    import settings._
     val akkaConf = ConfigFactory.parseString(
       s"""
       |akka.daemonic = on
@@ -68,7 +61,7 @@ private[spark] object AkkaUtils {
       |akka.actor.default-dispatcher.throughput = $akkaBatchSize
       |akka.remote.log-remote-lifecycle-events = $lifecycleEvents
       """.stripMargin)
-    val actorSystem = ActorSystem(name, akkaConf.withFallback(config))
+    val actorSystem = ActorSystem(name, akkaConf.withFallback(conf))
 
     val provider = actorSystem.asInstanceOf[ExtendedActorSystem].provider
     val boundPort = provider.getDefaultAddress.port.get
