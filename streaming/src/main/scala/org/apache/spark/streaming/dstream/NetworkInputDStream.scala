@@ -17,22 +17,22 @@
 
 package org.apache.spark.streaming.dstream
 
-import java.util.concurrent.ArrayBlockingQueue
 import java.nio.ByteBuffer
+import java.util.concurrent.ArrayBlockingQueue
 
 import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
 
-import akka.actor.{Props, Actor}
+import akka.actor.{Actor, Props}
 import akka.pattern.ask
 
-import org.apache.spark.streaming.util.{RecurringTimer, SystemClock}
-import org.apache.spark.streaming._
 import org.apache.spark.{Logging, SparkEnv}
-import org.apache.spark.rdd.{RDD, BlockRDD}
+import org.apache.spark.rdd.{BlockRDD, RDD}
 import org.apache.spark.storage.{BlockId, StorageLevel, StreamBlockId}
+import org.apache.spark.streaming._
+import org.apache.spark.streaming.util.{RecurringTimer, SystemClock}
 
 /**
  * Abstract class for defining any InputDStream that has to start a receiver on worker
@@ -179,7 +179,7 @@ abstract class NetworkReceiver[T: ClassTag]() extends Serializable with Logging 
     val ip = env.conf.getString("spark.driver.host")
     val port = env.conf.getInt("spark.driver.port")
     val url = "akka.tcp://spark@%s:%s/user/NetworkInputTracker".format(ip, port)
-    val tracker = env.actorSystem.actorFor(url)
+    val tracker = env.actorSystem.actorSelection(url)
     val timeout = 5.seconds
 
     override def preStart() {
