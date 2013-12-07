@@ -81,7 +81,7 @@ class JobLoggerSuite extends FunSuite with LocalSparkContext with ShouldMatchers
   }
   
   test("inner variables") {
-    sc = new SparkContext("local[4]", "joblogger", config)
+    sc = new SparkContext("local[4]", "joblogger")
     val joblogger = new JobLogger {
       override protected def closeLogWriter(jobID: Int) = 
         getJobIDtoPrintWriter.get(jobID).foreach { fileWriter => 
@@ -94,7 +94,7 @@ class JobLoggerSuite extends FunSuite with LocalSparkContext with ShouldMatchers
 
     assert(sc.dagScheduler.listenerBus.waitUntilEmpty(WAIT_TIMEOUT_MILLIS))
 
-    val user = System.getProperty("user.name", SparkContext.SPARK_UNKNOWN_USER)
+    val user = sc.settings.sparkUser
     
     joblogger.getLogDir should be ("/tmp/spark-%s".format(user))
     joblogger.getJobIDtoPrintWriter.size should be (1)

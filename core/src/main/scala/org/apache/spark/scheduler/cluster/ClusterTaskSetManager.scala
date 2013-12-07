@@ -50,18 +50,18 @@ private[spark] class ClusterTaskSetManager(
   extends TaskSetManager
   with Logging
 {
+  val env = SparkEnv.get
   // CPUs to request per task
-  val CPUS_PER_TASK = System.getProperty("spark.task.cpus", "1").toInt
+  val CPUS_PER_TASK = env.settings.cpuPerTask
 
   // Maximum times a task is allowed to fail before failing the job
-  val MAX_TASK_FAILURES = System.getProperty("spark.task.maxFailures", "4").toInt
+  val MAX_TASK_FAILURES = env.settings.taskMaxFailures
 
   // Quantile of tasks at which to start speculation
-  val SPECULATION_QUANTILE = System.getProperty("spark.speculation.quantile", "0.75").toDouble
-  val SPECULATION_MULTIPLIER = System.getProperty("spark.speculation.multiplier", "1.5").toDouble
-
+  val SPECULATION_QUANTILE = env.settings.speculationQuantile
+  val SPECULATION_MULTIPLIER = env.settings.speculationMultiplier
   // Serializer for closures and tasks.
-  val env = SparkEnv.get
+
   val ser = env.closureSerializer.newInstance()
 
   val tasks = taskSet.tasks
@@ -116,8 +116,7 @@ private[spark] class ClusterTaskSetManager(
   var causeOfFailure = ""
 
   // How frequently to reprint duplicate exceptions in full, in milliseconds
-  val EXCEPTION_PRINT_INTERVAL =
-    System.getProperty("spark.logging.exceptionPrintInterval", "10000").toLong
+  val EXCEPTION_PRINT_INTERVAL = env.settings.exceptionPrintInterval
 
   // Map of recent exceptions (identified by string representation and top stack frame) to
   // duplicate count (how many times the same exception has appeared) and time the full exception
@@ -677,14 +676,11 @@ private[spark] class ClusterTaskSetManager(
   }
 
   private def getLocalityWait(level: TaskLocality.TaskLocality): Long = {
-    val defaultWait = System.getProperty("spark.locality.wait", "3000")
+    val defaultWait = env.settings.localityWait
     level match {
-      case TaskLocality.PROCESS_LOCAL =>
-        System.getProperty("spark.locality.wait.process", defaultWait).toLong
-      case TaskLocality.NODE_LOCAL =>
-        System.getProperty("spark.locality.wait.node", defaultWait).toLong
-      case TaskLocality.RACK_LOCAL =>
-        System.getProperty("spark.locality.wait.rack", defaultWait).toLong
+      case TaskLocality.PROCESS_LOCAL => env.settings.localityWaitProcess
+      case TaskLocality.NODE_LOCAL => env.settings.localityWaitNode
+      case TaskLocality.RACK_LOCAL => env.settings.localityWaitRack
       case TaskLocality.ANY =>
         0L
     }

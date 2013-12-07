@@ -87,7 +87,7 @@ class ClusterTaskSetManagerSuite extends FunSuite with LocalSparkContext with Lo
   val LOCALITY_WAIT = System.getProperty("spark.locality.wait", "3000").toLong
 
   test("TaskSet with no preferences") {
-    sc = new SparkContext("local", "test", config)
+    sc = new SparkContext("local", "test")
     val sched = new FakeClusterScheduler(sc, ("exec1", "host1"))
     val taskSet = createTaskSet(1)
     val manager = new ClusterTaskSetManager(sched, taskSet)
