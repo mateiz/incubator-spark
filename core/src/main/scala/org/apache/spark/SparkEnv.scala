@@ -17,24 +17,20 @@
 
 package org.apache.spark
 
-import collection.mutable
-import serializer.Serializer
+import scala.collection.mutable
 import scala.util.Try
 
 import akka.actor._
-import akka.remote.RemoteActorRefProvider
+import com.google.common.collect.MapMaker
 import com.typesafe.config.{Config, ConfigFactory}
 
+import org.apache.spark.api.python.PythonWorkerFactory
 import org.apache.spark.broadcast.BroadcastManager
 import org.apache.spark.metrics.MetricsSystem
-import org.apache.spark.storage.{BlockManagerMasterActor, BlockManager, BlockManagerMaster}
 import org.apache.spark.network.ConnectionManager
 import org.apache.spark.serializer.{Serializer, SerializerManager}
-import org.apache.spark.util.{Utils, AkkaUtils}
-import org.apache.spark.api.python.PythonWorkerFactory
-
-import com.google.common.collect.MapMaker
-
+import org.apache.spark.storage.{BlockManager, BlockManagerMaster, BlockManagerMasterActor}
+import org.apache.spark.util.{AkkaUtils, Utils}
 
 /**
  * Holds all the runtime environment objects for a running Spark instance (either master or worker),
@@ -92,7 +88,6 @@ class SparkEnv (
 }
 
 object SparkEnv extends Logging {
-  import collection.JavaConverters._
 
   private val env = new ThreadLocal[SparkEnv]
   @volatile private var lastSetSparkEnv : SparkEnv = _
@@ -123,14 +118,12 @@ object SparkEnv extends Logging {
    * updates are merged into a new config object and passed into SparkEnv.
    * @param executorId 0 for driver, or the executer ID
    * @param config the Typesafe Config object to be used for configuring Spark
-   * @param akkaHostPortFunction: returns the host and port for initializing the ActorSystem
    * @param isDriver true if this is the driver
    * @param isLocal  true if running in local mode (single process)
    */
-  def createFromConfig(
+  private[spark] def createFromConfig(
       executorId: String,
       config: Config,
-      akkaHostPortFunction: => (String, Int),
       isDriver: Boolean,
       isLocal: Boolean): SparkEnv = {
     import org.apache.spark.util.ConfigUtils._
@@ -141,12 +134,12 @@ object SparkEnv extends Logging {
       parseString(s"""spark.fileserver.uri = "${httpFileServer.serverUri}" """).withFallback(config)
 
     var settings: Settings = new Settings(conf)
-    val (akkaHost, akkaPort) = akkaHostPortFunction
-
-    val (actorSystem, boundPort) = AkkaUtils.createActorSystem("spark", akkaHost, akkaPort, settings)
+    val hostName = if(isDriver) settings.driverHost else Utils.localHostName()
+    val port = if(isDriver) Try(settings.driverPort).getOrElse(0) else 0
+    val (actorSystem :ActorSystem, boundPort: Int) = AkkaUtils.createActorSystem("spark",hostName,port,settings)
 
     val driverConfig = if (isDriver) {
-      Map("spark.driver.host" -> akkaHost, "spark.driver.port" -> boundPort)
+      Map("spark.driver.host" -> settings.driverHost, "spark.driver.port" -> boundPort)
     } else {
       Map.empty[String, Any]
     }
@@ -260,12 +253,24 @@ object SparkEnv extends Logging {
 
     import conf._
 
+    final def sparkHome = Try(getString("spark.home")).toOption
+      .orElse(Option(System.getenv("SPARK_HOME")))
     final val memoryFraction = Try(getDouble("spark.storage.memoryFraction")).getOrElse(0.66)
+    final val logConf = Try(getBoolean("spark.log.confAsInfo")).getOrElse(false)
+    final val sparkUser = Try(getString("user.name")).
+      getOrElse(Option(System.getenv("SPARK_USER")).getOrElse(SparkContext.SPARK_UNKNOWN_USER))
 
     final def maxMemBlockManager = Try(getLong("spark.storage.blockmanager.maxmem"))
       .getOrElse((Runtime.getRuntime.maxMemory * memoryFraction).toLong)
 
+    /** Only set at driver, the defaults are replaced once ActorSystem is initialized
+      * and reflected in augmented settings created, which is used everywhere.*/
+    final val driverHost = Try(getString("spark.driver.host")).getOrElse(Utils.localHostName())
+    final def driverPort = getInt("spark.driver.port")
+
     final val cleanerTtl = Try(getInt("spark.cleaner.ttl")).getOrElse(3600)
+
+    // Maps to io.file.buffer.size
     final val bufferSize = Try(getInt("spark.buffer.size")).getOrElse(65536)
     final val compressBroadcast = Try(getBoolean("spark.broadcast.compress")).getOrElse(true)
     final val httpBroadcastURI = Try(getString("spark.httpBroadcast.uri")).getOrElse("")
@@ -279,6 +284,13 @@ object SparkEnv extends Logging {
     final val serializer = Try(getString("spark.serializer")).
       getOrElse("org.apache.spark.serializer.JavaSerializer")
 
+    final def replClassUri = getString("spark.repl.class.uri")
+
+    final val executorMem = Try(getString("spark.executor.memory")).toOption
+      .orElse(Option(System.getenv("SPARK_MEM")))
+      .map(Utils.memoryStringToMb)
+      .getOrElse(512)
+
     final val akkaThreads = Try(getInt("spark.akka.threads")).getOrElse(4)
     final val akkaBatchSize = Try(getInt("spark.akka.batchSize")).getOrElse(15)
     final val akkaTimeout = Try(getInt("spark.akka.timeout")).getOrElse(60)
@@ -288,5 +300,8 @@ object SparkEnv extends Logging {
     final val akkaHeartBeatPauses = Try(getInt("spark.akka.heartbeat.pauses")).getOrElse(600)
     final val akkaFailureDetector = Try(getDouble("spark.akka.failure-detector.threshold")).getOrElse(300.0)
     final val akkaHeartBeatInterval = Try(getInt("spark.akka.heartbeat.interval")).getOrElse(1000)
+
+    final val  mesosIsCoarse = Try(getBoolean("spark.mesos.coarse")).getOrElse(false)
+
   }
 }

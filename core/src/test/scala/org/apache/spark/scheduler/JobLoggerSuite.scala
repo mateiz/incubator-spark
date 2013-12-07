@@ -17,10 +17,9 @@
 
 package org.apache.spark.scheduler
 
-import java.util.Properties
-import java.util.concurrent.LinkedBlockingQueue
 
-import scala.collection.mutable
+
+import scala.Some
 
 import org.scalatest.FunSuite
 import org.scalatest.matchers.ShouldMatchers
@@ -29,13 +28,6 @@ import org.apache.spark._
 import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.util.CoreTestConfig._
-import org.apache.spark.scheduler.SparkListenerTaskEnd
-import scala.Some
-import org.apache.spark.scheduler.SparkListenerJobEnd
-import org.apache.spark.scheduler.SparkListenerStageSubmitted
-import org.apache.spark.scheduler.StageCompleted
-import org.apache.spark.scheduler.SparkListenerJobStart
-
 
 class JobLoggerSuite extends FunSuite with LocalSparkContext with ShouldMatchers {
   val WAIT_TIMEOUT_MILLIS = 10000

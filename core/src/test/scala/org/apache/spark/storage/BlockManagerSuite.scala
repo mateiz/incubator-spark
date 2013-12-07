@@ -51,9 +51,11 @@ class BlockManagerSuite extends FunSuite with BeforeAndAfter with PrivateMethodT
   implicit def StringToBlockId(value: String): BlockId = new TestBlockId(value)
   def rdd(rddId: Int, splitId: Int) = RDDBlockId(rddId, splitId)
 
-  def configure(mem: Int) = new SparkEnv.Settings(ConfigFactory.
-    parseString(s"spark.storage.blockmanager.maxmem = $mem").
-    withFallback(config))
+  def configure(mem: Int, compress: Boolean = true) = new SparkEnv.Settings(ConfigFactory.
+    parseString(s"""
+      |spark.storage.blockmanager.maxmem = $mem
+      |spark.broadcast.compress = $compress
+       """.stripMargin).withFallback(config))
 
   before {
     val (actorSystem, boundPort) = AkkaUtils.createActorSystem("test", "localhost", 0,
@@ -608,7 +610,6 @@ class BlockManagerSuite extends FunSuite with BeforeAndAfter with PrivateMethodT
       store.stop()
       store = null
 
-      System.setProperty("spark.broadcast.compress", "true")
       store = new BlockManager("exec3", actorSystem, master, serializer, configure(2000))
       store.putSingle(BroadcastBlockId(0), new Array[Byte](1000), StorageLevel.MEMORY_ONLY_SER)
       assert(store.memoryStore.getSize(BroadcastBlockId(0)) <= 100,
@@ -616,8 +617,7 @@ class BlockManagerSuite extends FunSuite with BeforeAndAfter with PrivateMethodT
       store.stop()
       store = null
 
-      System.setProperty("spark.broadcast.compress", "false")
-      store = new BlockManager("exec4", actorSystem, master, serializer, configure(2000))
+      store = new BlockManager("exec4", actorSystem, master, serializer, configure(2000, false))
       store.putSingle(BroadcastBlockId(0), new Array[Byte](1000), StorageLevel.MEMORY_ONLY_SER)
       assert(store.memoryStore.getSize(BroadcastBlockId(0)) >= 1000, "broadcast_0 was compressed")
       store.stop()
@@ -645,7 +645,6 @@ class BlockManagerSuite extends FunSuite with BeforeAndAfter with PrivateMethodT
       store = null
     } finally {
       System.clearProperty("spark.shuffle.compress")
-      System.clearProperty("spark.broadcast.compress")
       System.clearProperty("spark.rdd.compress")
     }
   }

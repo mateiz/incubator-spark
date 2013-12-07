@@ -26,7 +26,7 @@ import scala.collection.JavaConversions._
 import scala.collection.mutable.HashMap
 import scala.util.{Try, Success}
 
-import com.typesafe.config.Config
+import com.typesafe.config.{ConfigFactory, Config}
 
 import org.apache.spark._
 import org.apache.spark.deploy.SparkHadoopUtil
@@ -102,11 +102,12 @@ private[spark] class Executor(
   }
 
   val executorSource = new ExecutorSource(this, executorId)
-
+  val conf = ConfigFactory.parseString(s"""spark.driver.host = "$slaveHostname" """)
+    .withFallback(config)
   // Initialize Spark environment (using passed in config)
   private val env = {
     if (!isLocal) {
-      val _env = SparkEnv.createFromConfig(executorId, config, (slaveHostname, 0), false, false)
+      val _env = SparkEnv.createFromConfig(executorId, config, isDriver = false, isLocal = false)
       SparkEnv.set(_env)
       _env.metricsSystem.registerSource(executorSource)
       _env

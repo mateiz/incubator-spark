@@ -23,53 +23,37 @@ import java.util.Properties
 import java.util.concurrent.atomic.AtomicInteger
 
 import scala.collection.Map
-import scala.collection.generic.Growable
 import scala.collection.JavaConversions._
-import scala.collection.mutable.ArrayBuffer
-import scala.collection.mutable.HashMap
-import scala.reflect.{ ClassTag, classTag}
-import scala.util.DynamicVariable
+import scala.collection.generic.Growable
+import scala.collection.mutable.{ArrayBuffer, HashMap}
+import scala.reflect.{ClassTag, classTag}
 import scala.util.Try
 
+import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
-import org.apache.hadoop.io.ArrayWritable
-import org.apache.hadoop.io.BooleanWritable
-import org.apache.hadoop.io.BytesWritable
-import org.apache.hadoop.io.DoubleWritable
-import org.apache.hadoop.io.FloatWritable
-import org.apache.hadoop.io.IntWritable
-import org.apache.hadoop.io.LongWritable
-import org.apache.hadoop.io.NullWritable
-import org.apache.hadoop.io.Text
-import org.apache.hadoop.io.Writable
-import org.apache.hadoop.mapred.FileInputFormat
-import org.apache.hadoop.mapred.InputFormat
-import org.apache.hadoop.mapred.JobConf
-import org.apache.hadoop.mapred.SequenceFileInputFormat
-import org.apache.hadoop.mapred.TextInputFormat
-import org.apache.hadoop.mapreduce.{InputFormat => NewInputFormat}
-import org.apache.hadoop.mapreduce.{Job => NewHadoopJob}
+import org.apache.hadoop.io.{ArrayWritable, BooleanWritable, BytesWritable, DoubleWritable,
+  FloatWritable, IntWritable, LongWritable, NullWritable, Text, Writable}
+import org.apache.hadoop.mapred.{FileInputFormat, InputFormat, JobConf, SequenceFileInputFormat,
+  TextInputFormat}
+import org.apache.hadoop.mapreduce.{InputFormat => NewInputFormat, Job => NewHadoopJob}
 import org.apache.hadoop.mapreduce.lib.input.{FileInputFormat => NewFileInputFormat}
-
 import org.apache.mesos.MesosNativeLibrary
 
 import org.apache.spark.deploy.{LocalSparkCluster, SparkHadoopUtil}
 import org.apache.spark.partial.{ApproximateEvaluator, PartialResult}
 import org.apache.spark.rdd._
 import org.apache.spark.scheduler._
-import org.apache.spark.scheduler.cluster.{CoarseGrainedSchedulerBackend,
-  SparkDeploySchedulerBackend, ClusterScheduler, SimrSchedulerBackend}
-import org.apache.spark.scheduler.cluster.mesos.{CoarseMesosSchedulerBackend, MesosSchedulerBackend}
+import org.apache.spark.scheduler.cluster.{ClusterScheduler, CoarseGrainedSchedulerBackend,
+  SimrSchedulerBackend, SparkDeploySchedulerBackend}
+import org.apache.spark.scheduler.cluster.mesos.{CoarseMesosSchedulerBackend,
+  MesosSchedulerBackend}
 import org.apache.spark.scheduler.local.LocalScheduler
-import org.apache.spark.scheduler.StageInfo
 import org.apache.spark.storage.{BlockManagerSource, RDDInfo, StorageStatus, StorageUtils}
 import org.apache.spark.ui.SparkUI
 import org.apache.spark.util.{ClosureCleaner, MetadataCleaner, MetadataCleanerType,
   TimeStampedHashMap, Utils}
 import org.apache.spark.util.ConfigUtils._
-
-import com.typesafe.config.{Config, ConfigFactory}
 
 /**
  * Main entry point for Spark functionality. A SparkContext represents the connection to a Spark
@@ -128,7 +112,6 @@ class SparkContext(
   // 3. config file (could be JSON) defined at URL in system property "spark.config.url", if defined
   // 4. Defaults in spark-defaults.conf in classpath
   val mergedConfig = loadConfig() ++ config
-  logDebug("Starting Spark Context with config:\n" + mergedConfig.getConfig("spark").root.render)
 
   val isLocal = (master == "local" || master.startsWith("local["))
 
@@ -136,9 +119,7 @@ class SparkContext(
   private[spark] val env = SparkEnv.createFromConfig(
     "<driver>",
     mergedConfig,
-    (Try(mergedConfig.getString("spark.driver.host")).getOrElse(Utils.localHostName),
-     mergedConfig.getInt("spark.driver.port")),
-    true,
+    isDriver = true,
     isLocal)
   SparkEnv.set(env)
 
@@ -147,6 +128,9 @@ class SparkContext(
    */
   private[spark] def settings = env.settings
 
+  if(settings.logConf) { //Since logging it can be very noisy in logs.
+    logInfo("Starting Spark Context with config:\n" + settings.conf.getConfig("spark").root.render)
+  }
   // Used to store a URL for each static file/jar together with the file's local timestamp
   private[spark] val addedFiles = HashMap[String, Long]()
   private[spark] val addedJars = HashMap[String, Long]()
@@ -175,17 +159,13 @@ class SparkContext(
     }
   }
   // Since memory can be set with a system property too, use that
-  executorEnvs("SPARK_MEM") = SparkContext.executorMemoryRequested + "m"
+  executorEnvs("SPARK_MEM") = settings.executorMem + "m"
   if (environment != null) {
     executorEnvs ++= environment
   }
 
   // Set SPARK_USER for user who is running SparkContext.
-  val sparkUser = Option {
-    Option(System.getProperty("user.name")).getOrElse(System.getenv("SPARK_USER"))
-  }.getOrElse {
-    SparkContext.SPARK_UNKNOWN_USER
-  }
+  val sparkUser = settings.sparkUser
   executorEnvs("SPARK_USER") = sparkUser
 
   // Create and start the scheduler
@@ -229,10 +209,10 @@ class SparkContext(
       case LOCAL_CLUSTER_REGEX(numSlaves, coresPerSlave, memoryPerSlave) =>
         // Check to make sure memory requested <= memoryPerSlave. Otherwise Spark will just hang.
         val memoryPerSlaveInt = memoryPerSlave.toInt
-        if (SparkContext.executorMemoryRequested > memoryPerSlaveInt) {
+        if (settings.executorMem > memoryPerSlaveInt) {
           throw new SparkException(
             "Asked to launch cluster with %d MB RAM / worker but requested %d MB/worker".format(
-              memoryPerSlaveInt, SparkContext.executorMemoryRequested))
+              memoryPerSlaveInt, settings.executorMem))
         }
 
         val scheduler = new ClusterScheduler(this)
@@ -290,7 +270,7 @@ class SparkContext(
       case MESOS_REGEX(mesosUrl) =>
         MesosNativeLibrary.load()
         val scheduler = new ClusterScheduler(this)
-        val coarseGrained = System.getProperty("spark.mesos.coarse", "false").toBoolean
+        val coarseGrained = settings.mesosIsCoarse
         val backend = if (coarseGrained) {
           new CoarseMesosSchedulerBackend(scheduler, this, mesosUrl, appName)
         } else {
@@ -322,14 +302,16 @@ class SparkContext(
       conf.set("fs.s3.awsSecretAccessKey", System.getenv("AWS_SECRET_ACCESS_KEY"))
       conf.set("fs.s3n.awsSecretAccessKey", System.getenv("AWS_SECRET_ACCESS_KEY"))
     }
+     import scala.collection.JavaConversions._
     // Copy any "spark.hadoop.foo=bar" system properties into conf as "foo=bar"
-    Utils.getSystemProperties.foreach { case (key, value) =>
-      if (key.startsWith("spark.hadoop.")) {
-        conf.set(key.substring("spark.hadoop.".length), value)
-      }
+    //TODO Test this.
+    config.entrySet().foreach {
+      x =>  if (x.getKey.startsWith("spark.hadoop.")) {
+          conf.set(x.getKey.substring("spark.hadoop.".length), x.getValue.unwrapped().toString)
+        }
     }
-    val bufferSize = System.getProperty("spark.buffer.size", "65536")
-    conf.set("io.file.buffer.size", bufferSize)
+
+    conf.set("io.file.buffer.size", settings.bufferSize.toString)
     conf
   }
 
@@ -758,8 +740,7 @@ class SparkContext(
   }
 
   /** Return the driver Akka host and port for remote access */
-  private[spark] def getDriverHostAndPort =
-    (env.conf.getString("spark.driver.host"), env.conf.getInt("spark.driver.port"))
+  private[spark] def getDriverHostAndPort = (settings.driverHost, settings.driverPort)
 
   /**
    * Adds a JAR dependency for all tasks to be executed on this SparkContext in the future.
@@ -846,10 +827,7 @@ class SparkContext(
    * (in that order of preference). If neither of these is set, return None.
    * Note that the configuration will pick up the system property as a backup.
    */
-  private[spark] def getSparkHome(): Option[String] = {
-    Try(config.getString("spark.home")).toOption
-      .orElse(Option(System.getenv("SPARK_HOME")))
-  }
+  private[spark] def getSparkHome = settings.sparkHome
 
   /**
    * Run a function on a given set of partitions in an RDD and pass the results to the given
@@ -1162,14 +1140,6 @@ object SparkContext {
   /** Find the JAR that contains the class of a particular object */
   def jarOfObject(obj: AnyRef): Seq[String] = jarOfClass(obj.getClass)
 
-  /** Get the amount of memory per executor requested through system properties or SPARK_MEM */
-  private[spark] val executorMemoryRequested = {
-    // TODO: Might need to add some extra memory for the non-heap parts of the JVM
-    Option(System.getProperty("spark.executor.memory"))
-      .orElse(Option(System.getenv("SPARK_MEM")))
-      .map(Utils.memoryStringToMb)
-      .getOrElse(512)
-  }
 }
 
 /**

@@ -17,22 +17,16 @@
 
 package org.apache.spark.scheduler
 
-import scala.collection.mutable.{Map, HashMap}
+import scala.Tuple2
+import scala.collection.mutable.{HashMap, Map}
 
-import org.scalatest.FunSuite
-import org.scalatest.BeforeAndAfter
+import org.scalatest.{BeforeAndAfter, FunSuite}
 
 import org.apache.spark._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.scheduler.SchedulingMode.SchedulingMode
 import org.apache.spark.storage.{BlockId, BlockManagerId, BlockManagerMaster}
 import org.apache.spark.util.CoreTestConfig
-import org.apache.spark.scheduler.TaskSetFailed
-import org.apache.spark.FetchFailed
-import org.apache.spark.scheduler.CompletionEvent
-import org.apache.spark.scheduler.ExecutorLost
-import scala.Tuple2
-import org.apache.spark.scheduler.JobSubmitted
 
 /**
  * Tests for DAGScheduler. These tests directly call the event processing functions in DAGScheduler

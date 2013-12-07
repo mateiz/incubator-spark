@@ -26,6 +26,7 @@ import org.apache.spark.{SparkEnv, Logging}
 import org.apache.spark.TaskState.TaskState
 import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages._
 import org.apache.spark.util.{ConfigUtils, Utils, AkkaUtils}
+import com.typesafe.config.ConfigFactory
 
 private[spark] class CoarseGrainedExecutorBackend(
     driverUrl: String,
@@ -53,8 +54,8 @@ private[spark] class CoarseGrainedExecutorBackend(
       logInfo("Successfully registered with driver")
       logInfo("Configuration: \n" + sparkConfig.root.render)
       // Make this host instead of hostPort ?
-      executor = new Executor(executorId, Utils.parseHostPort(hostPort)._1, sparkConfig)
 
+      executor = new Executor(executorId, Utils.parseHostPort(hostPort)._1, sparkConfig)
     case RegisterExecutorFailed(message) =>
       logError("Slave registration failed: " + message)
       System.exit(1)
@@ -99,7 +100,7 @@ private[spark] object CoarseGrainedExecutorBackend {
     // Create a new ActorSystem to run the backend, because we can't create a SparkEnv / Executor
     // before getting started with all our system properties, etc
     val (actorSystem, boundPort) = AkkaUtils.createActorSystem("sparkExecutor", hostname, 0,
-    new SparkEnv.Settings(ConfigUtils.loadConfig()))
+    new SparkEnv.Settings(ConfigFactory.empty()))
 
     // set it
     val sparkHostPort = hostname + ":" + boundPort

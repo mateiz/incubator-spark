@@ -77,7 +77,7 @@ private[spark] class BlockManager(
     System.getProperty("spark.reducer.maxMbInFlight", "48").toLong * 1024 * 1024
 
   // Whether to compress broadcast variables that are stored
-  val compressBroadcast = System.getProperty("spark.broadcast.compress", "true").toBoolean
+  val compressBroadcast = settings.compressBroadcast
   // Whether to compress shuffle output that are stored
   val compressShuffle = System.getProperty("spark.shuffle.compress", "true").toBoolean
   // Whether to compress RDD partitions that are stored serialized
