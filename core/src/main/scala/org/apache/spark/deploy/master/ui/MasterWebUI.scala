@@ -34,8 +34,7 @@ import org.apache.spark.util.Utils
  */
 private[spark]
 class MasterWebUI(val master: Master, requestedPort: Int) extends Logging {
-  implicit val timeout = Duration.create(
-    System.getProperty("spark.akka.askTimeout", "10").toLong, "seconds")
+  implicit val timeout = Duration.create(master.settings.askTimeout, "seconds")
   val host = Utils.localHostName()
   val port = requestedPort
 

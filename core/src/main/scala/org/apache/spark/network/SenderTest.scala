@@ -18,7 +18,10 @@
 package org.apache.spark.network
 
 import java.nio.ByteBuffer
-import java.net.InetAddress
+
+import com.typesafe.config.ConfigFactory
+
+import org.apache.spark.SparkEnv
 
 private[spark] object SenderTest {
 
@@ -33,7 +36,7 @@ private[spark] object SenderTest {
     val targetPort = args(1).toInt
     val targetConnectionManagerId = new ConnectionManagerId(targetHost, targetPort)
 
-    val manager = new ConnectionManager(0)
+    val manager = new ConnectionManager(0, new SparkEnv.Settings(ConfigFactory.empty))
     println("Started connection manager with id = " + manager.id)
 
     manager.onReceiveMessage((msg: Message, id: ConnectionManagerId) => { 
@@ -61,8 +64,10 @@ private[spark] object SenderTest {
       val finishTime = System.currentTimeMillis
       val mb = size / 1024.0 / 1024.0
       val ms = finishTime - startTime
-      /*val resultStr = "Sent " + mb + " MB " + targetServer + " in " + ms + " ms at " + (mb / ms * 1000.0) + " MB/s"*/
-      val resultStr = "Sent " + mb + " MB " + targetServer + " in " + ms + " ms (" +  (mb / ms * 1000.0).toInt + "MB/s) | Response = " + responseStr
+      /*val resultStr = "Sent " + mb + " MB " + targetServer + " in " + ms + " ms at " +
+      (mb / ms * 1000.0) + " MB/s"*/
+      val resultStr = "Sent " + mb + " MB " + targetServer + " in " + ms + " ms (" +
+        (mb / ms * 1000.0).toInt + "MB/s) | Response = " + responseStr
       println(resultStr)
     })
   }

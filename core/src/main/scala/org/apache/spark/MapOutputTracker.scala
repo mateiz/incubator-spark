@@ -54,7 +54,7 @@ private[spark] class MapOutputTrackerMasterActor(tracker: MapOutputTrackerMaster
 
 private[spark] class MapOutputTracker(settings: SparkEnv.Settings) extends Logging {
 
-  private val timeout = Duration.create(System.getProperty("spark.akka.askTimeout", "10").toLong, "seconds")
+  private val timeout = Duration.create(settings.askTimeout, "seconds")
 
   // Set to the MapOutputTrackerActor living on the driver
   var trackerActor: Either[ActorRef, ActorSelection] = _

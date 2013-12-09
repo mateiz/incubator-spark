@@ -18,12 +18,15 @@
 package org.apache.spark.network
 
 import java.nio.ByteBuffer
-import java.net.InetAddress
+
+import com.typesafe.config.ConfigFactory
+
+import org.apache.spark.SparkEnv
 
 private[spark] object ReceiverTest {
 
   def main(args: Array[String]) {
-    val manager = new ConnectionManager(9999)
+    val manager = new ConnectionManager(9999, new SparkEnv.Settings(ConfigFactory.empty))
     println("Started connection manager with id = " + manager.id)
     
     manager.onReceiveMessage((msg: Message, id: ConnectionManagerId) => { 

@@ -21,24 +21,23 @@ import java.util.{HashMap => JHashMap}
 
 import scala.collection.mutable
 import scala.collection.JavaConversions._
+import scala.concurrent.Future
+import scala.concurrent.duration._
 
 import akka.actor.{Actor, ActorRef, Cancellable}
 import akka.pattern.ask
 
-import scala.concurrent.duration._
-import scala.concurrent.Future
-
-import org.apache.spark.{Logging, SparkException}
+import org.apache.spark.{Logging, SparkEnv, SparkException}
 import org.apache.spark.storage.BlockManagerMessages._
 import org.apache.spark.util.Utils
-
 
 /**
  * BlockManagerMasterActor is an actor on the master node to track statuses of
  * all slaves' block managers.
  */
 private[spark]
-class BlockManagerMasterActor(val isLocal: Boolean) extends Actor with Logging {
+class BlockManagerMasterActor(val isLocal: Boolean, settings: SparkEnv.Settings)
+  extends Actor with Logging {
 
   // Mapping from block manager id to the block manager's information.
   private val blockManagerInfo =
@@ -50,21 +49,18 @@ class BlockManagerMasterActor(val isLocal: Boolean) extends Actor with Logging {
   // Mapping from block id to the set of block managers that have the block.
   private val blockLocations = new JHashMap[BlockId, mutable.HashSet[BlockManagerId]]
 
-  val akkaTimeout = Duration.create(
-    System.getProperty("spark.akka.askTimeout", "10").toLong, "seconds")
+  val akkaTimeout = Duration.create(settings.askTimeout, "seconds")
 
   initLogging()
 
-  val slaveTimeout = System.getProperty("spark.storage.blockManagerSlaveTimeoutMs",
-    "" + (BlockManager.getHeartBeatFrequencyFromSystemProperties * 3)).toLong
+  val slaveTimeout = settings.slaveTimeout
 
-  val checkTimeoutInterval = System.getProperty("spark.storage.blockManagerTimeoutIntervalMs",
-    "60000").toLong
+  val checkTimeoutInterval = settings.bmTimeout
 
   var timeoutCheckingTask: Cancellable = null
 
   override def preStart() {
-    if (!BlockManager.getDisableHeartBeatsForTesting) {
+    if (!settings.disableTestHeartBeat) {
       import context.dispatcher
       timeoutCheckingTask = context.system.scheduler.schedule(
         0.seconds, checkTimeoutInterval.milliseconds, self, ExpireDeadHosts)

@@ -29,14 +29,16 @@ import org.apache.hadoop.yarn.util.{ConverterUtils, Records}
 import akka.actor._
 import akka.remote._
 import akka.actor.Terminated
-import org.apache.spark.{SparkContext, Logging}
-import org.apache.spark.util.{Utils, AkkaUtils}
+import org.apache.spark.{SparkEnv, SparkContext, Logging}
+import org.apache.spark.util.{ConfigUtils, Utils, AkkaUtils}
 import org.apache.spark.scheduler.cluster.CoarseGrainedSchedulerBackend
 import org.apache.spark.scheduler.SplitInfo
 
-class WorkerLauncher(args: ApplicationMasterArguments, conf: Configuration) extends Logging {
+class WorkerLauncher(args: ApplicationMasterArguments, conf: Configuration,
+                     settings: SparkEnv.Settings) extends Logging {
 
-  def this(args: ApplicationMasterArguments) = this(args, new Configuration())
+  def this(args: ApplicationMasterArguments, settings: SparkEnv.Settings) =
+    this(args, new Configuration(), settings)
 
   private val rpc: YarnRPC = YarnRPC.create(conf)
   private var resourceManager: AMRMProtocol = null
@@ -47,7 +49,8 @@ class WorkerLauncher(args: ApplicationMasterArguments, conf: Configuration) exte
   private var yarnAllocator: YarnAllocationHandler = null
   private var driverClosed:Boolean = false
 
-  val actorSystem : ActorSystem = AkkaUtils.createActorSystem("sparkYarnAM", Utils.localHostName, 0)._1
+  val actorSystem: ActorSystem = AkkaUtils.createActorSystem("sparkYarnAM", Utils.localHostName,
+    0, settings)._1
   var actor: ActorRef = null
 
   // This actor just working as a monitor to watch on Driver Actor.
@@ -238,6 +241,6 @@ class WorkerLauncher(args: ApplicationMasterArguments, conf: Configuration) exte
 object WorkerLauncher {
   def main(argStrings: Array[String]) {
     val args = new ApplicationMasterArguments(argStrings)
-    new WorkerLauncher(args).run()
+    new WorkerLauncher(args, new SparkEnv.Settings(ConfigUtils.loadConfig())).run()
   }
 }

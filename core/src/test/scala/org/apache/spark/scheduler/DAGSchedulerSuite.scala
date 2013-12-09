@@ -27,6 +27,7 @@ import org.apache.spark.rdd.RDD
 import org.apache.spark.scheduler.SchedulingMode.SchedulingMode
 import org.apache.spark.storage.{BlockId, BlockManagerId, BlockManagerMaster}
 import org.apache.spark.util.CoreTestConfig
+import com.typesafe.config.ConfigFactory
 
 /**
  * Tests for DAGScheduler. These tests directly call the event processing functions in DAGScheduler
@@ -41,7 +42,6 @@ import org.apache.spark.util.CoreTestConfig
  * and capturing the resulting TaskSets from the mock TaskScheduler.
  */
 class DAGSchedulerSuite extends FunSuite with BeforeAndAfter with LocalSparkContext {
-   import CoreTestConfig._
   /** Set of TaskSets the DAGScheduler has requested executed. */
   val taskSets = scala.collection.mutable.Buffer[TaskSet]()
   val taskScheduler = new TaskScheduler() {
@@ -61,7 +61,7 @@ class DAGSchedulerSuite extends FunSuite with BeforeAndAfter with LocalSparkCont
 
   var mapOutputTracker: MapOutputTrackerMaster = null
   var scheduler: DAGScheduler = null
-
+  val settings = new SparkEnv.Settings(ConfigFactory.empty)
   /**
    * Set of cache locations to return from our mock BlockManagerMaster.
    * Keys are (rdd ID, partition ID). Anything not present will return an empty
@@ -69,7 +69,7 @@ class DAGSchedulerSuite extends FunSuite with BeforeAndAfter with LocalSparkCont
    */
   val cacheLocations = new HashMap[(Int, Int), Seq[BlockManagerId]]
   // stub out BlockManagerMaster.getLocations to use our cacheLocations
-  val blockManagerMaster = new BlockManagerMaster(null) {
+  val blockManagerMaster = new BlockManagerMaster(null, settings) {
       override def getLocations(blockIds: Array[BlockId]): Seq[Seq[BlockManagerId]] = {
         blockIds.map {
           _.asRDDId.map(id => (id.rddId -> id.splitIndex)).flatMap(key => cacheLocations.get(key)).
@@ -90,11 +90,11 @@ class DAGSchedulerSuite extends FunSuite with BeforeAndAfter with LocalSparkCont
   }
 
   before {
-    sc = new SparkContext("local", "DAGSchedulerSuite", config)
+    sc = new SparkContext("local", "DAGSchedulerSuite")
     taskSets.clear()
     cacheLocations.clear()
     results.clear()
-    mapOutputTracker = new MapOutputTrackerMaster(new SparkEnv.Settings(config))
+    mapOutputTracker = new MapOutputTrackerMaster(settings)
     scheduler = new DAGScheduler(taskScheduler, mapOutputTracker, blockManagerMaster, sc.env) {
       override def runLocally(job: ActiveJob) {
         // don't bother with the thread while unit testing

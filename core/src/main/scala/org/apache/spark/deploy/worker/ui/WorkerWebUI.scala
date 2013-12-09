@@ -42,10 +42,10 @@ private[spark]
 class WorkerWebUI(val worker: Worker, val workDir: File, requestedPort: Option[Int] = None)
   extends Logging {
   implicit val timeout = Timeout(
-    Duration.create(System.getProperty("spark.akka.askTimeout", "10").toLong, "seconds"))
+    Duration.create(worker.settings.askTimeout, "seconds"))
   val host = Utils.localHostName()
   val port = requestedPort.getOrElse(
-    System.getProperty("worker.ui.port", WorkerWebUI.DEFAULT_PORT).toInt)
+    System.getProperty("worker.ui.port", WorkerWebUI.DEFAULT_PORT).toInt)  //TODO not set anywhere.
 
   var server: Option[Server] = None
   var boundPort: Option[Int] = None

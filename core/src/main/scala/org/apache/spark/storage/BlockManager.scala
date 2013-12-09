@@ -20,25 +20,20 @@ package org.apache.spark.storage
 import java.io.{File, InputStream, OutputStream}
 import java.nio.{ByteBuffer, MappedByteBuffer}
 
-import scala.collection.mutable.{HashMap, ArrayBuffer}
-import scala.util.{Try, Random}
+import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
+import scala.util.Random
 
 import akka.actor.{ActorSystem, Cancellable, Props}
-
 import it.unimi.dsi.fastutil.io.{FastBufferedOutputStream, FastByteArrayOutputStream}
-
-import com.typesafe.config.Config
+import sun.nio.ch.DirectBuffer
 
 import org.apache.spark.{Logging, SparkEnv, SparkException}
 import org.apache.spark.io.CompressionCodec
 import org.apache.spark.network._
 import org.apache.spark.serializer.Serializer
 import org.apache.spark.util._
-
-import sun.nio.ch.DirectBuffer
-import org.apache.spark.SparkEnv.Settings
 
 private[spark] class BlockManager(
     executorId: String,
@@ -50,8 +45,7 @@ private[spark] class BlockManager(
 
   val shuffleBlockManager = new ShuffleBlockManager(this)
 
-  val diskBlockManager = new DiskBlockManager(shuffleBlockManager,
-    System.getProperty("spark.local.dir", System.getProperty("java.io.tmpdir")))
+  val diskBlockManager = new DiskBlockManager(shuffleBlockManager, settings.sparkLocalDir)
 
   private val blockInfo = new TimeStampedHashMap[BlockId, BlockInfo]
   val maxMemory: Long = settings.maxMemBlockManager
@@ -60,12 +54,12 @@ private[spark] class BlockManager(
 
   // If we use Netty for shuffle, start a new Netty-based shuffle sender service.
   private val nettyPort: Int = {
-    val useNetty = System.getProperty("spark.shuffle.use.netty", "false").toBoolean
-    val nettyPortConfig = System.getProperty("spark.shuffle.sender.port", "0").toInt
+    val useNetty = settings.useNetty
+    val nettyPortConfig = settings.nettyPortConfig
     if (useNetty) diskBlockManager.startShuffleBlockSender(nettyPortConfig) else 0
   }
 
-  val connectionManager = new ConnectionManager(0)
+  val connectionManager = new ConnectionManager(0, settings)
   implicit val futureExecContext = connectionManager.futureExecContext
 
   val blockManagerId = BlockManagerId(
@@ -73,17 +67,16 @@ private[spark] class BlockManager(
 
   // Max megabytes of data to keep in flight per reducer (to avoid over-allocating memory
   // for receiving shuffle outputs)
-  val maxBytesInFlight =
-    System.getProperty("spark.reducer.maxMbInFlight", "48").toLong * 1024 * 1024
+  val maxBytesInFlight = settings.maxMbInFlight * 1024 * 1024
 
   // Whether to compress broadcast variables that are stored
   val compressBroadcast = settings.compressBroadcast
   // Whether to compress shuffle output that are stored
-  val compressShuffle = System.getProperty("spark.shuffle.compress", "true").toBoolean
+  val compressShuffle = settings.compressShuffle
   // Whether to compress RDD partitions that are stored serialized
-  val compressRdds = System.getProperty("spark.rdd.compress", "false").toBoolean
+  val compressRdds = settings.compressRdds
 
-  val heartBeatFrequency = BlockManager.getHeartBeatFrequencyFromSystemProperties
+  val heartBeatFrequency = settings.bmTimeout / 4
 
   val slaveActor = actorSystem.actorOf(Props(new BlockManagerSlaveActor(this)),
     name = "BlockManagerActor" + BlockManager.ID_GENERATOR.next)
@@ -121,7 +114,7 @@ private[spark] class BlockManager(
   private def initialize() {
     master.registerBlockManager(blockManagerId, maxMemory, slaveActor)
     BlockManagerWorker.startBlockManagerWorker(this)
-    if (!BlockManager.getDisableHeartBeatsForTesting) {
+    if (!settings.disableTestHeartBeat) {
       heartBeatTask = actorSystem.scheduler.schedule(0.seconds, heartBeatFrequency.milliseconds) {
         heartBeat()
       }
@@ -434,7 +427,7 @@ private[spark] class BlockManager(
       : BlockFetcherIterator = {
 
     val iter =
-      if (System.getProperty("spark.shuffle.use.netty", "false").toBoolean) {
+      if (settings.useNetty) {
         new BlockFetcherIterator.NettyBlockFetcherIterator(this, blocksByAddress, serializer)
       } else {
         new BlockFetcherIterator.BasicBlockFetcherIterator(this, blocksByAddress, serializer)
@@ -853,13 +846,6 @@ private[spark] class BlockManager(
 private[spark] object BlockManager extends Logging {
 
   val ID_GENERATOR = new IdGenerator
-
-  def getHeartBeatFrequencyFromSystemProperties: Long =
-
-    System.getProperty("spark.storage.blockManagerTimeoutIntervalMs", "60000").toLong / 4
-
-  def getDisableHeartBeatsForTesting: Boolean =
-    System.getProperty("spark.test.disableBlockManagerHeartBeat", "false").toBoolean
 
   /**
    * Attempt to clean up a ByteBuffer if it is memory-mapped. This uses an *unsafe* Sun API that

@@ -29,7 +29,7 @@ import akka.remote.{DisassociatedEvent, RemotingLifecycleEvent}
 
 import com.typesafe.config.Config
 
-import org.apache.spark.{SparkException, Logging, TaskState}
+import org.apache.spark.{SparkEnv, SparkException, Logging, TaskState}
 import org.apache.spark.scheduler.TaskDescription
 import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages._
 import org.apache.spark.util.Utils
@@ -46,12 +46,10 @@ private[spark]
 class CoarseGrainedSchedulerBackend(scheduler: ClusterScheduler, actorSystem: ActorSystem)
   extends SchedulerBackend with Logging
 {
-  val config = scheduler.sc.env.conf
-
   // Use an atomic variable to track total number of cores in the cluster for simplicity and speed
   var totalCoreCount = new AtomicInteger(0)
 
-  class DriverActor(sparkConfig: Config) extends Actor {
+  class DriverActor(settings: SparkEnv.Settings) extends Actor {
     private val executorActor = new HashMap[String, ActorRef]
     private val executorAddress = new HashMap[String, Address]
     private val executorHost = new HashMap[String, String]
@@ -75,7 +73,7 @@ class CoarseGrainedSchedulerBackend(scheduler: ClusterScheduler, actorSystem: Ac
           sender ! RegisterExecutorFailed("Duplicate executor ID: " + executorId)
         } else {
           logInfo("Registered executor: " + sender + " with ID " + executorId)
-          sender ! RegisteredExecutor(sparkConfig)
+          sender ! RegisteredExecutor(settings.conf.withOnlyPath("spark"))
           executorActor(executorId) = sender
           executorHost(executorId) = Utils.parseHostPort(hostPort)._1
           freeCores(executorId) = cores
@@ -163,13 +161,12 @@ class CoarseGrainedSchedulerBackend(scheduler: ClusterScheduler, actorSystem: Ac
   val taskIdsOnSlave = new HashMap[String, HashSet[String]]
 
   override def start() {
-    val restrictedConfig = config.withOnlyPath("spark")
     driverActor = actorSystem.actorOf(
-      Props(new DriverActor(restrictedConfig)), name = CoarseGrainedSchedulerBackend.ACTOR_NAME)
+      Props(new DriverActor(scheduler.sc.settings)), name = CoarseGrainedSchedulerBackend.ACTOR_NAME)
   }
 
   private val timeout = {
-    Duration.create(System.getProperty("spark.akka.askTimeout", "10").toLong, "seconds")
+    Duration.create(scheduler.sc.settings.askTimeout, "seconds")
   }
 
   def stopExecutors() {

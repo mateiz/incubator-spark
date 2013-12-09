@@ -93,9 +93,11 @@ private[spark] object ThreadingTest {
   def main(args: Array[String]) {
     System.setProperty("spark.kryoserializer.buffer.mb", "1")
     val actorSystem = ActorSystem("test")
+    val settings = new SparkEnv.Settings(ConfigFactory.empty)
     val serializer = new KryoSerializer
     val blockManagerMaster = new BlockManagerMaster(
-      Left(actorSystem.actorOf(Props(new BlockManagerMasterActor(true)))))
+      Left(actorSystem.actorOf(Props(new BlockManagerMasterActor(true, settings)))), settings)
+
     val blockManager = new BlockManager(
       "<driver>", actorSystem, blockManagerMaster, serializer,
       new SparkEnv.Settings(

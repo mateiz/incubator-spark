@@ -40,15 +40,16 @@ import org.apache.spark.deploy.master.ui.MasterWebUI
 import org.apache.spark.metrics.MetricsSystem
 import org.apache.spark.util.{ConfigUtils, Utils, AkkaUtils}
 
-private[spark] class Master(host: String, port: Int, webUiPort: Int) extends Actor with Logging {
+private[spark] class Master(host: String, port: Int, webUiPort: Int,
+                            val settings: SparkEnv.Settings) extends Actor with Logging {
   import context.dispatcher
 
   val DATE_FORMAT = new SimpleDateFormat("yyyyMMddHHmmss")  // For application IDs
-  val WORKER_TIMEOUT = System.getProperty("spark.worker.timeout", "60").toLong * 1000
-  val RETAINED_APPLICATIONS = System.getProperty("spark.deploy.retainedApplications", "200").toInt
-  val REAPER_ITERATIONS = System.getProperty("spark.dead.worker.persistence", "15").toInt
-  val RECOVERY_DIR = System.getProperty("spark.deploy.recoveryDirectory", "")
-  val RECOVERY_MODE = System.getProperty("spark.deploy.recoveryMode", "NONE")
+  val WORKER_TIMEOUT = settings.workerTimeout * 1000
+  val RETAINED_APPLICATIONS = settings.retainedApplication
+  val REAPER_ITERATIONS = settings.workerPersistence
+  val RECOVERY_DIR = settings.recoveryDir
+  val RECOVERY_MODE = settings.recoveryMode
 
   var nextAppNumber = 0
   val workers = new HashSet[WorkerInfo]
@@ -91,7 +92,7 @@ private[spark] class Master(host: String, port: Int, webUiPort: Int) extends Act
   // As a temporary workaround before better ways of configuring memory, we allow users to set
   // a flag that will perform round-robin scheduling across the nodes (spreading out each app
   // among all the nodes) instead of trying to consolidate each app onto a small # of nodes.
-  val spreadOutApps = System.getProperty("spark.deploy.spreadOut", "true").toBoolean
+  val spreadOutApps = settings.spreadOutApps
 
   override def preStart() {
     logInfo("Starting Spark master at " + masterUrl)
@@ -536,11 +537,11 @@ private[spark] object Master {
   }
 
   def startSystemAndActor(host: String, port: Int, webUiPort: Int): (ActorSystem, Int, Int) = {
-    val (actorSystem, boundPort) = AkkaUtils.createActorSystem(systemName, host, port,
-      new SparkEnv.Settings(ConfigUtils.loadConfig()))
-    val actor = actorSystem.actorOf(Props(classOf[Master], host, boundPort, webUiPort), name = actorName)
-    val timeoutDuration: FiniteDuration = Duration.create(
-      System.getProperty("spark.akka.askTimeout", "10").toLong, TimeUnit.SECONDS)
+    val settings = new SparkEnv.Settings(ConfigUtils.loadConfig())
+    val (actorSystem, boundPort) = AkkaUtils.createActorSystem(systemName, host, port, settings)
+    val actor = actorSystem.actorOf(Props(classOf[Master], host, boundPort, webUiPort, settings),
+      name = actorName)
+    val timeoutDuration: FiniteDuration = Duration.create(settings.askTimeout, TimeUnit.SECONDS)
     implicit val timeout = Timeout(timeoutDuration)
     val respFuture = actor ? RequestWebUIPort   // ask pattern
     val resp = Await.result(respFuture, timeoutDuration).asInstanceOf[WebUIPortResponse]

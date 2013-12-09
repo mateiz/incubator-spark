@@ -153,9 +153,8 @@ object SparkEnv extends Logging {
 
     // Create an instance of the class named by the given Java system property, or by
     // defaultClassName if the property is not set, and return it as a T
-    def instantiateClass[T](propertyName: String, defaultClassName: String): T = {
-      val name = System.getProperty(propertyName, defaultClassName)
-      Class.forName(name, true, classLoader).newInstance().asInstanceOf[T]
+    def instantiateClass[T](className: String): T = {
+      Class.forName(className, true, classLoader).newInstance().asInstanceOf[T]
     }
 
     val serializerManager = new SerializerManager
@@ -179,14 +178,11 @@ object SparkEnv extends Logging {
       }
     }
     val blockManagerMaster = new BlockManagerMaster(registerOrLookup(
-      "BlockManagerMaster",
-      new BlockManagerMasterActor(isLocal)))
+      "BlockManagerMaster", new BlockManagerMasterActor(isLocal, settings)), settings)
 
     val blockManager = new BlockManager(executorId, actorSystem, blockManagerMaster, serializer,
       settings)
     val connectionManager = blockManager.connectionManager
-
-
 
     val cacheManager = new CacheManager(blockManager)
 
@@ -201,8 +197,7 @@ object SparkEnv extends Logging {
       "MapOutputTracker",
       new MapOutputTrackerMasterActor(mapOutputTracker.asInstanceOf[MapOutputTrackerMaster]))
 
-    val shuffleFetcher = instantiateClass[ShuffleFetcher](
-      "spark.shuffle.fetcher", "org.apache.spark.BlockStoreShuffleFetcher")
+    val shuffleFetcher = instantiateClass[ShuffleFetcher](settings.shuffleFetcher)
 
     val metricsSystem = if (isDriver) {
       MetricsSystem.createMetricsSystem("driver")
@@ -255,6 +250,8 @@ object SparkEnv extends Logging {
 
     final def sparkHome = Try(getString("spark.home")).toOption
       .orElse(Option(System.getenv("SPARK_HOME")))
+    final val sparkLocalDir = Try(getString("spark.local.dir")).
+      getOrElse(System.getProperty("java.io.tmpdir"))
     final val memoryFraction = Try(getDouble("spark.storage.memoryFraction")).getOrElse(0.66)
     final val logConf = Try(getBoolean("spark.log.confAsInfo")).getOrElse(false)
     final val sparkUser = Try(getString("user.name")).
@@ -266,8 +263,8 @@ object SparkEnv extends Logging {
     final val serializer = Try(getString("spark.serializer")).
       getOrElse("org.apache.spark.serializer.JavaSerializer")
 
-    final def maxMemBlockManager = Try(getLong("spark.storage.blockmanager.maxmem"))
-      .getOrElse((Runtime.getRuntime.maxMemory * memoryFraction).toLong)
+    final val shuffleFetcher = Try(getString("spark.shuffle.fetcher"))
+      .getOrElse("org.apache.spark.BlockStoreShuffleFetcher")
 
     /** Only set at driver, the defaults are replaced once ActorSystem is initialized
       * and reflected in augmented settings created, which is used everywhere.*/
@@ -279,6 +276,13 @@ object SparkEnv extends Logging {
     /** Maps to io.file.buffer.size */
     final val bufferSize = Try(getInt("spark.buffer.size")).getOrElse(65536)
 
+    final def replClassUri = getString("spark.repl.class.uri")
+
+    final val executorMem = Try(getString("spark.executor.memory")).toOption
+      .orElse(Option(System.getenv("SPARK_MEM")))
+      .map(Utils.memoryStringToMb)
+      .getOrElse(512)
+
     // Broadcast Related
     final val compressBroadcast = Try(getBoolean("spark.broadcast.compress")).getOrElse(true)
     final val httpBroadcastURI = Try(getString("spark.httpBroadcast.uri")).getOrElse("")
@@ -286,13 +290,6 @@ object SparkEnv extends Logging {
       getOrElse("org.apache.spark.broadcast.HttpBroadcastFactory")
 
     final val blockSize = Try(getInt("spark.broadcast.blockSize")).getOrElse(4096)
-
-    final def replClassUri = getString("spark.repl.class.uri")
-
-    final val executorMem = Try(getString("spark.executor.memory")).toOption
-      .orElse(Option(System.getenv("SPARK_MEM")))
-      .map(Utils.memoryStringToMb)
-      .getOrElse(512)
 
     // Akka related
     final val akkaThreads = Try(getInt("spark.akka.threads")).getOrElse(4)
@@ -305,10 +302,32 @@ object SparkEnv extends Logging {
     final val akkaFailureDetector = Try(getDouble("spark.akka.failure-detector.threshold")).
       getOrElse(300.0)
     final val akkaHeartBeatInterval = Try(getInt("spark.akka.heartbeat.interval")).getOrElse(1000)
-
+    final val askTimeout = Try(getInt("spark.akka.askTimeout")).getOrElse(10)
+    
     //Scheduling related
     final val schedulingMode = Try(getString("spark.scheduler.mode")).getOrElse("FIFO")
-    final val  mesosIsCoarse = Try(getBoolean("spark.mesos.coarse")).getOrElse(false)
+    final val mesosIsCoarse = Try(getBoolean("spark.mesos.coarse")).getOrElse(false)
+    final val simrMaxCores = Try(getInt("spark.simr.executor.cores")).getOrElse(1)
+    final val maxCores = Try(getInt("spark.cores.max")).getOrElse(Int.MaxValue)
+    final val mesosExtraCoresPerSlave = Try(getInt("spark.mesos.extra.cores")).getOrElse(0)
+
+    //Blockmanager related
+    final def maxMemBlockManager = Try(getLong("spark.storage.blockmanager.maxmem"))
+      .getOrElse((Runtime.getRuntime.maxMemory * memoryFraction).toLong)
+    final val useNetty = Try(getBoolean("spark.shuffle.use.netty")).getOrElse(false)
+    final val nettyPortConfig = Try(getInt("spark.shuffle.sender.port")).getOrElse(0)
+    final val maxMbInFlight = Try(getLong("spark.reducer.maxMbInFlight")). //TODO: should be maxBytes
+      getOrElse(48l)
+    final val compressShuffle = Try(getBoolean("spark.shuffle.compress")).getOrElse(true)
+    final val compressRdds = Try(getBoolean("spark.rdd.compress")).getOrElse(false)
+    final val bmTimeout = Try(getLong("spark.storage.blockManagerTimeoutIntervalMs")).
+      getOrElse(60000l)
+    final val slaveTimeout = Try(getLong("spark.storage.blockManagerSlaveTimeoutMs")).
+      getOrElse(bmTimeout * 3l)
+    final val disableTestHeartBeat = Try(getBoolean("spark.test.disableBlockManagerHeartBeat")).
+      getOrElse(false)
+    final val akkaRetries: Int = Try(getInt("spark.akka.num.retries")).getOrElse(3)
+    final val akkaRetryInterval: Int = Try(getInt("spark.akka.retry.wait")).getOrElse(3000)
 
     //Task related
     final val localityWait = Try(getLong("spark.locality.wait")).getOrElse(3000l)
@@ -329,6 +348,31 @@ object SparkEnv extends Logging {
     final val exceptionPrintInterval = Try(getLong("spark.logging.exceptionPrintInterval")).
       getOrElse(10000l)
 
+    //Connection Manager related
+    final val handlerMinThreads = Try(getInt("spark.core.connection.handler.threads.min")).
+      getOrElse(20)
+    final val handlerMaxThreads = Try(getInt("spark.core.connection.handler.threads.max")).
+      getOrElse(60)
+    final val handlerKeepalive = Try(getInt("spark.core.connection.handler.threads.keepalive")).
+      getOrElse(60)
+    final val ioMinThreads = Try(getInt("spark.core.connection.handler.io.min")).getOrElse(4)
+    final val ioMaxThreads = Try(getInt("spark.core.connection.handler.io.max")).getOrElse(32)
+    final val ioKeepalive = Try(getInt("spark.core.connection.handler.io.keepalive")).getOrElse(60)
+    final val connectMinThreads = Try(getInt("spark.core.connection.connect.threads.min")).
+      getOrElse(1)
+    final val connectMaxThreads = Try(getInt("spark.core.connection.connect.threads.max")).
+      getOrElse(8)
+    final val connectKeepalive = Try(getInt("spark.core.connection.connect.threads.keepalive")).
+      getOrElse(60)
+
+    //deploy related
+    final val workerTimeout = Try(getLong("spark.worker.timeout")).getOrElse(60l)
+    final val retainedApplication = Try(getInt("spark.deploy.retainedApplications")).getOrElse(200)
+    final val workerPersistence = Try(getInt("spark.dead.worker.persistence")).getOrElse(15)
+    final val recoveryDir = Try(getString("spark.deploy.recoveryDirectory")).getOrElse("")
+    final val recoveryMode = Try(getString("spark.deploy.recoveryMode")).getOrElse("NONE")
+    final val spreadOutApps = Try(getBoolean("spark.deploy.spreadOut")).getOrElse(true)
+
     //Streaming
     final val blockInterval = Try(getLong("spark.streaming.blockInterval")).getOrElse(200l)
     final val concurrentJobs = Try(getInt("spark.streaming.concurrentJobs")).getOrElse(1)
@@ -336,5 +380,6 @@ object SparkEnv extends Logging {
       getOrElse("org.apache.spark.streaming.util.SystemClock")
     final val jumpTime = Try(getLong("spark.streaming.manualClock.jump")).getOrElse(0l)
 
+    
   }
 }

@@ -31,14 +31,13 @@ private[spark] class SimrSchedulerBackend(
   val tmpPath = new Path(driverFilePath + "_tmp")
   val filePath = new Path(driverFilePath)
 
-  val maxCores = System.getProperty("spark.simr.executor.cores", "1").toInt
+  val maxCores = sc.settings.simrMaxCores
 
   override def start() {
     super.start()
 
-    val driverUrl = "akka://spark@%s:%s/user/%s".format(
-      System.getProperty("spark.driver.host"), System.getProperty("spark.driver.port"),
-      CoarseGrainedSchedulerBackend.ACTOR_NAME)
+    val driverUrl = "akka://spark@%s:%s/user/%s".format(sc.settings.driverHost,
+      sc.settings.driverPort, CoarseGrainedSchedulerBackend.ACTOR_NAME)
 
     val conf = new Configuration()
     val fs = FileSystem.get(conf)

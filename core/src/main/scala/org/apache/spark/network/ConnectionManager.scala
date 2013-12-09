@@ -17,27 +17,22 @@
 
 package org.apache.spark.network
 
-import org.apache.spark._
-
+import java.net._
 import java.nio._
 import java.nio.channels._
 import java.nio.channels.spi._
-import java.net._
-import java.util.concurrent.{LinkedBlockingDeque, TimeUnit, ThreadPoolExecutor}
+import java.util.concurrent.{LinkedBlockingDeque, ThreadPoolExecutor, TimeUnit}
 
-import scala.collection.mutable.HashSet
-import scala.collection.mutable.HashMap
-import scala.collection.mutable.SynchronizedMap
-import scala.collection.mutable.SynchronizedQueue
-import scala.collection.mutable.ArrayBuffer
-
-import scala.concurrent.{Await, Promise, ExecutionContext, Future}
-import scala.concurrent.duration.Duration
+import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet, SynchronizedMap, SynchronizedQueue}
+import scala.concurrent.{Await, ExecutionContext, Future, Promise}
 import scala.concurrent.duration._
 
+import com.typesafe.config.ConfigFactory
+
+import org.apache.spark._
 import org.apache.spark.util.Utils
 
-private[spark] class ConnectionManager(port: Int) extends Logging {
+private[spark] class ConnectionManager(port: Int, settings: SparkEnv.Settings) extends Logging {
 
   class MessageStatus(
       val message: Message,
@@ -53,23 +48,17 @@ private[spark] class ConnectionManager(port: Int) extends Logging {
 
   private val selector = SelectorProvider.provider.openSelector()
 
-  private val handleMessageExecutor = new ThreadPoolExecutor(
-    System.getProperty("spark.core.connection.handler.threads.min","20").toInt,
-    System.getProperty("spark.core.connection.handler.threads.max","60").toInt,
-    System.getProperty("spark.core.connection.handler.threads.keepalive","60").toInt, TimeUnit.SECONDS,
+  private val handleMessageExecutor = new ThreadPoolExecutor(settings.handlerMinThreads,
+    settings.handlerMaxThreads, settings.handlerKeepalive, TimeUnit.SECONDS,
     new LinkedBlockingDeque[Runnable]())
 
-  private val handleReadWriteExecutor = new ThreadPoolExecutor(
-    System.getProperty("spark.core.connection.io.threads.min","4").toInt,
-    System.getProperty("spark.core.connection.io.threads.max","32").toInt,
-    System.getProperty("spark.core.connection.io.threads.keepalive","60").toInt, TimeUnit.SECONDS,
+  private val handleReadWriteExecutor = new ThreadPoolExecutor(settings.ioMinThreads,
+    settings.ioMaxThreads, settings.ioKeepalive, TimeUnit.SECONDS,
     new LinkedBlockingDeque[Runnable]())
 
   // Use a different, yet smaller, thread pool - infrequently used with very short lived tasks : which should be executed asap
-  private val handleConnectExecutor = new ThreadPoolExecutor(
-    System.getProperty("spark.core.connection.connect.threads.min","1").toInt,
-    System.getProperty("spark.core.connection.connect.threads.max","8").toInt,
-    System.getProperty("spark.core.connection.connect.threads.keepalive","60").toInt, TimeUnit.SECONDS,
+  private val handleConnectExecutor = new ThreadPoolExecutor(settings.connectMinThreads,
+    settings.connectMaxThreads, settings.connectKeepalive, TimeUnit.SECONDS,
     new LinkedBlockingDeque[Runnable]())
 
   private val serverChannel = ServerSocketChannel.open()
@@ -594,7 +583,7 @@ private[spark] class ConnectionManager(port: Int) extends Logging {
 private[spark] object ConnectionManager {
 
   def main(args: Array[String]) {
-    val manager = new ConnectionManager(9999)
+    val manager = new ConnectionManager(9999, new SparkEnv.Settings(ConfigFactory.empty))
     manager.onReceiveMessage((msg: Message, id: ConnectionManagerId) => {
       println("Received [" + msg + "] from [" + id + "]")
       None

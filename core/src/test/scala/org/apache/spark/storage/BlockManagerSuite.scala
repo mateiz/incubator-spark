@@ -42,33 +42,37 @@ class BlockManagerSuite extends FunSuite with BeforeAndAfter with PrivateMethodT
   var oldArch: String = null
   var oldOops: String = null
   var oldHeartBeat: String = null
-  import CoreTestConfig._
   // Reuse a serializer across tests to avoid creating a new thread-local buffer on each test
   System.setProperty("spark.kryoserializer.buffer.mb", "1")
   val serializer = new KryoSerializer
-
+  val defaultSettings = new SparkEnv.Settings(ConfigFactory.empty)
   // Implicitly convert strings to BlockIds for test clarity.
   implicit def StringToBlockId(value: String): BlockId = new TestBlockId(value)
   def rdd(rddId: Int, splitId: Int) = RDDBlockId(rddId, splitId)
 
-  def configure(mem: Int, compress: Boolean = true) = new SparkEnv.Settings(ConfigFactory.
-    parseString(s"""
+  def configure(mem: Int, compress: Boolean = true, shuffleCompress: Boolean = true,
+                rddCompress: Boolean = false) =
+    new SparkEnv.Settings(ConfigFactory.parseString( s"""
       |spark.storage.blockmanager.maxmem = $mem
       |spark.broadcast.compress = $compress
-       """.stripMargin).withFallback(config))
+      |spark.shuffle.compress = $shuffleCompress
+      |spark.rdd.compress = $rddCompress
+       """.stripMargin))
 
   before {
     val (actorSystem, boundPort) = AkkaUtils.createActorSystem("test", "localhost", 0,
-      new SparkEnv.Settings(config))
+      defaultSettings)
 
     this.actorSystem = actorSystem
 
     master = new BlockManagerMaster(
-      Left(actorSystem.actorOf(Props(new BlockManagerMasterActor(true)))))
+      Left(actorSystem.actorOf(Props(new BlockManagerMasterActor(true,
+        defaultSettings)))), defaultSettings)
 
     // Set the arch to 64-bit and compressedOops to true to get a deterministic test-case
     oldArch = System.setProperty("os.arch", "amd64")
     oldOops = System.setProperty("spark.test.useCompressedOops", "true")
+    //TODO: remove it, since it is not used anywhere in the code base.
     oldHeartBeat = System.setProperty("spark.storage.disableBlockManagerHeartBeat", "true")
     val initialize = PrivateMethod[Unit]('initialize)
     SizeEstimator invokePrivate initialize()
@@ -594,7 +598,6 @@ class BlockManagerSuite extends FunSuite with BeforeAndAfter with PrivateMethodT
 
   test("block compression") {
     try {
-      System.setProperty("spark.shuffle.compress", "true")
       store = new BlockManager("exec1", actorSystem, master, serializer, configure(2000))
       store.putSingle(ShuffleBlockId(0, 0, 0), new Array[Byte](1000), StorageLevel.MEMORY_ONLY_SER)
       assert(store.memoryStore.getSize(ShuffleBlockId(0, 0, 0)) <= 100,
@@ -602,35 +605,36 @@ class BlockManagerSuite extends FunSuite with BeforeAndAfter with PrivateMethodT
       store.stop()
       store = null
 
-      System.setProperty("spark.shuffle.compress", "false")
-      store = new BlockManager("exec2", actorSystem, master, serializer, configure(2000))
+      store = new BlockManager("exec2", actorSystem, master, serializer, configure(2000,
+        shuffleCompress = false))
       store.putSingle(ShuffleBlockId(0, 0, 0), new Array[Byte](1000), StorageLevel.MEMORY_ONLY_SER)
       assert(store.memoryStore.getSize(ShuffleBlockId(0, 0, 0)) >= 1000,
         "shuffle_0_0_0 was compressed")
       store.stop()
       store = null
 
-      store = new BlockManager("exec3", actorSystem, master, serializer, configure(2000))
+      store = new BlockManager("exec3", actorSystem, master, serializer, configure(2000,
+        shuffleCompress = false))
       store.putSingle(BroadcastBlockId(0), new Array[Byte](1000), StorageLevel.MEMORY_ONLY_SER)
       assert(store.memoryStore.getSize(BroadcastBlockId(0)) <= 100,
         "broadcast_0 was not compressed")
       store.stop()
       store = null
 
-      store = new BlockManager("exec4", actorSystem, master, serializer, configure(2000, false))
+      store = new BlockManager("exec4", actorSystem, master, serializer, configure(2000,
+        compress = false, shuffleCompress = false))
       store.putSingle(BroadcastBlockId(0), new Array[Byte](1000), StorageLevel.MEMORY_ONLY_SER)
       assert(store.memoryStore.getSize(BroadcastBlockId(0)) >= 1000, "broadcast_0 was compressed")
       store.stop()
       store = null
 
-      System.setProperty("spark.rdd.compress", "true")
-      store = new BlockManager("exec5", actorSystem, master, serializer, configure(2000))
+      store = new BlockManager("exec5", actorSystem, master, serializer, configure(2000,
+        shuffleCompress = false, rddCompress = true))
       store.putSingle(rdd(0, 0), new Array[Byte](1000), StorageLevel.MEMORY_ONLY_SER)
       assert(store.memoryStore.getSize(rdd(0, 0)) <= 100, "rdd_0_0 was not compressed")
       store.stop()
       store = null
 
-      System.setProperty("spark.rdd.compress", "false")
       store = new BlockManager("exec6", actorSystem, master, serializer, configure(2000))
       store.putSingle(rdd(0, 0), new Array[Byte](1000), StorageLevel.MEMORY_ONLY_SER)
       assert(store.memoryStore.getSize(rdd(0, 0)) >= 1000, "rdd_0_0 was compressed")
@@ -643,9 +647,6 @@ class BlockManagerSuite extends FunSuite with BeforeAndAfter with PrivateMethodT
       assert(store.memoryStore.getSize("other_block") >= 1000, "other_block was compressed")
       store.stop()
       store = null
-    } finally {
-      System.clearProperty("spark.shuffle.compress")
-      System.clearProperty("spark.rdd.compress")
     }
   }
 

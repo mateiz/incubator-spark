@@ -53,7 +53,8 @@ private[spark] class Worker(
     cores: Int,
     memory: Int,
     masterUrls: Array[String],
-    workDirPath: String = null)
+    workDirPath: String = null,
+    val settings: SparkEnv.Settings)
   extends Actor with Logging {
   import context.dispatcher
 
@@ -63,7 +64,7 @@ private[spark] class Worker(
   val DATE_FORMAT = new SimpleDateFormat("yyyyMMddHHmmss")  // For worker and executor IDs
 
   // Send a heartbeat every (heartbeat timeout) / 4 milliseconds
-  val HEARTBEAT_MILLIS = System.getProperty("spark.worker.timeout", "60").toLong * 1000 / 4
+  val HEARTBEAT_MILLIS = settings.workerTimeout * 1000 / 4
 
   val REGISTRATION_TIMEOUT = 20.seconds
   val REGISTRATION_RETRIES = 3
@@ -284,11 +285,12 @@ private[spark] object Worker {
     masterUrls: Array[String], workDir: String, workerNumber: Option[Int] = None)
     : (ActorSystem, Int) = {
     // The LocalSparkCluster runs multiple local sparkWorkerX actor systems
+    val settings = new SparkEnv.Settings(ConfigUtils.loadConfig())
     val systemName = "sparkWorker" + workerNumber.map(_.toString).getOrElse("")
     val (actorSystem, boundPort) = AkkaUtils.createActorSystem(systemName, host, port,
-      new SparkEnv.Settings(ConfigUtils.loadConfig()))
+      settings)
     actorSystem.actorOf(Props(classOf[Worker], host, boundPort, webUiPort, cores, memory,
-      masterUrls, workDir), name = "Worker")
+      masterUrls, workDir, settings), name = "Worker")
     (actorSystem, boundPort)
   }
 
