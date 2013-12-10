@@ -39,11 +39,14 @@ import scala.collection.mutable.HashMap
 import scala.collection.mutable.Map
 import scala.collection.JavaConversions._
 
-import org.apache.spark.Logging
+import org.apache.spark.{SparkEnv, Logging}
+import org.apache.spark.util.ConfigUtils
 
-class Client(conf: Configuration, args: ClientArguments) extends YarnClientImpl with Logging {
+class Client(conf: Configuration, args: ClientArguments, settings: SparkEnv.Settings)
+  extends YarnClientImpl with Logging {
   
-  def this(args: ClientArguments) = this(new Configuration(), args)
+  def this(args: ClientArguments, settings: SparkEnv.Settings) =
+    this(new Configuration(), args, settings)
   
   var rpc: YarnRPC = YarnRPC.create(conf)
   val yarnConf: YarnConfiguration = new YarnConfiguration(conf)
@@ -224,7 +227,7 @@ class Client(conf: Configuration, args: ClientArguments) extends YarnClientImpl 
       }
     }
     val dst = new Path(fs.getHomeDirectory(), appStagingDir)
-    val replication = System.getProperty("spark.yarn.submit.file.replication", "3").toShort
+    val replication = settings.yarnReplication
 
     if (UserGroupInformation.isSecurityEnabled()) {
       val dstFs = dst.getFileSystem(conf)
@@ -444,7 +447,7 @@ object Client {
   val SPARK_JAR: String = "spark.jar"
   val APP_JAR: String = "app.jar"
   val LOG4J_PROP: String = "log4j.properties"
-
+  val settings = new SparkEnv.Settings(ConfigUtils.loadConfig())
   def main(argStrings: Array[String]) {
     // Set an env variable indicating we are running in YARN mode.
     // Note that anything with SPARK prefix gets propagated to all (remote) processes
@@ -452,7 +455,7 @@ object Client {
 
     val args = new ClientArguments(argStrings)
 
-    new Client(args).run
+    new Client(args, settings).run
   }
 
   // Based on code from org.apache.hadoop.mapreduce.v2.util.MRApps
@@ -470,8 +473,8 @@ object Client {
         Path.SEPARATOR + LOG4J_PROP)
     }
     // normally the users app.jar is last in case conflicts with spark jars
-    val userClasspathFirst = System.getProperty("spark.yarn.user.classpath.first", "false")
-      .toBoolean
+    val userClasspathFirst = settings.yarnUserClasspathFirst
+
     if (userClasspathFirst) {
       Apps.addToEnvironment(env, Environment.CLASSPATH.name, Environment.PWD.$() + 
         Path.SEPARATOR + APP_JAR)

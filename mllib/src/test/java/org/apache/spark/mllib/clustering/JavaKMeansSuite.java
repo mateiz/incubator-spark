@@ -41,7 +41,6 @@ public class JavaKMeansSuite implements Serializable {
   public void tearDown() {
     sc.stop();
     sc = null;
-    System.clearProperty("spark.driver.port");
   }
 
   // L1 distance between two points

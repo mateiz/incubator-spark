@@ -945,10 +945,14 @@ class SparkILoop(in0: Option[BufferedReader], protected val out: JPrintWriter,
     val jars = Option(System.getenv("ADD_JARS")).map(_.split(','))
                                                 .getOrElse(new Array[String](0))
                                                 .map(new java.io.File(_).getAbsolutePath)
+    val conf = if (uri != null) {
+      configFromJarList(jars) + ("spark.repl.class.uri" -> intp.classServer.uri) +
+        ("spark.executor.uri" -> uri)
+    } else {
+      configFromJarList(jars) + ("spark.repl.class.uri" -> intp.classServer.uri)
+    }
     try {
-      sparkContext = new SparkContext(master, "Spark shell",
-                                      configFromJarList(jars) +
-                                      ("spark.repl.class.uri" -> intp.classServer.uri))
+      sparkContext = new SparkContext(master, "Spark shell", conf)
       } catch {
       case e: Exception =>
         e.printStackTrace()
