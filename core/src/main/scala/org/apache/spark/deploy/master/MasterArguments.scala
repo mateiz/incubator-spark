@@ -17,7 +17,8 @@
 
 package org.apache.spark.deploy.master
 
-import org.apache.spark.util.{Utils, IntParam}
+import org.apache.spark.util.{ConfigUtils, Utils, IntParam}
+import scala.util.{Success, Try}
 
 /**
  * Command-line parser for the master.
@@ -37,8 +38,9 @@ private[spark] class MasterArguments(args: Array[String]) {
   if (System.getenv("SPARK_MASTER_WEBUI_PORT") != null) {
     webUiPort = System.getenv("SPARK_MASTER_WEBUI_PORT").toInt
   }
-  if (System.getProperty("master.ui.port") != null) {
-    webUiPort = System.getProperty("master.ui.port").toInt
+  Try(ConfigUtils.settings.masterUiPort) match {
+    case Success(x: Int) => webUiPort = x
+    case _ =>
   }
 
   parse(args.toList)

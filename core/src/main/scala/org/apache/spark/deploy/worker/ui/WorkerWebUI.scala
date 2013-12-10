@@ -44,8 +44,7 @@ class WorkerWebUI(val worker: Worker, val workDir: File, requestedPort: Option[I
   implicit val timeout = Timeout(
     Duration.create(worker.settings.askTimeout, "seconds"))
   val host = Utils.localHostName()
-  val port = requestedPort.getOrElse(
-    System.getProperty("worker.ui.port", WorkerWebUI.DEFAULT_PORT).toInt)  //TODO not set anywhere.
+  val port = requestedPort.getOrElse(worker.settings.workerUiPort)
 
   var server: Option[Server] = None
   var boundPort: Option[Int] = None
@@ -190,5 +189,5 @@ class WorkerWebUI(val worker: Worker, val workDir: File, requestedPort: Option[I
 
 private[spark] object WorkerWebUI {
   val STATIC_RESOURCE_DIR = "org/apache/spark/ui/static"
-  val DEFAULT_PORT="8081"
+  val DEFAULT_PORT = 8081
 }

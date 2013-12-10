@@ -35,6 +35,7 @@ import org.apache.spark.scheduler.TaskDescription
 import org.apache.spark.scheduler.cluster.{ClusterScheduler, ExecutorExited, ExecutorLossReason}
 import org.apache.spark.scheduler.cluster.{SchedulerBackend, SlaveLost, WorkerOffer}
 import org.apache.spark.util.Utils
+import scala.util.{Success, Try}
 
 /**
  * A SchedulerBackend for running fine-grained tasks on Mesos. Each Spark task is mapped to a
@@ -102,16 +103,16 @@ private[spark] class MesosSchedulerBackend(
     }
     val command = CommandInfo.newBuilder()
       .setEnvironment(environment)
-    val uri = System.getProperty("spark.executor.uri")
-    if (uri == null) {
-      command.setValue(new File(sparkHome, "spark-executor").getCanonicalPath)
-    } else {
-      // Grab everything to the first '.'. We'll use that and '*' to
-      // glob the directory "correctly".
-      val basename = uri.split('/').last.split('.').head
-      command.setValue("cd %s*; ./spark-executor".format(basename))
-      command.addUris(CommandInfo.URI.newBuilder().setValue(uri))
+    Try(sc.settings.executorUri) match {
+      case Success(uri: String) =>
+        // Grab everything to the first '.'. We'll use that and '*' to
+        // glob the directory "correctly".
+        val basename = uri.split('/').last.split('.').head
+        command.setValue("cd %s*; ./spark-executor".format(basename))
+        command.addUris(CommandInfo.URI.newBuilder().setValue(uri))
+      case _ => command.setValue(new File(sparkHome, "spark-executor").getCanonicalPath)
     }
+
     val memory = Resource.newBuilder()
       .setName("mem")
       .setType(Value.Type.SCALAR)

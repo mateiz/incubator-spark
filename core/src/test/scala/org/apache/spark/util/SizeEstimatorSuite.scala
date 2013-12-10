@@ -20,6 +20,8 @@ package org.apache.spark.util
 import org.scalatest.FunSuite
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.PrivateMethodTester
+import com.typesafe.config.ConfigFactory
+import org.apache.spark.SparkEnv
 
 class DummyClass1 {}
 
@@ -59,7 +61,6 @@ class SizeEstimatorSuite
 
   override def afterAll() {
     resetOrClear("os.arch", oldArch)
-    resetOrClear("spark.test.useCompressedOops", oldOops)
   }
 
   test("simple classes") {
@@ -138,8 +139,8 @@ class SizeEstimatorSuite
   // (Sun vs IBM). Use a DummyString class to make tests deterministic.
   test("64-bit arch with no compressed oops") {
     val arch = System.setProperty("os.arch", "amd64")
-    val oops = System.setProperty("spark.test.useCompressedOops", "false")
-
+    val c = ConfigFactory.parseString("spark.test.useCompressedOops=false")
+    SizeEstimator.settings = new SparkEnv.Settings(c)
     val initialize = PrivateMethod[Unit]('initialize)
     SizeEstimator invokePrivate initialize()
 
@@ -149,7 +150,6 @@ class SizeEstimatorSuite
     expectResult(72)(SizeEstimator.estimate(DummyString("abcdefgh")))
 
     resetOrClear("os.arch", arch)
-    resetOrClear("spark.test.useCompressedOops", oops)
   }
 
   def resetOrClear(prop: String, oldValue: String) {

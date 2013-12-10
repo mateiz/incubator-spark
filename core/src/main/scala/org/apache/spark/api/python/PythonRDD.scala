@@ -28,7 +28,7 @@ import org.apache.spark.api.java.{JavaSparkContext, JavaPairRDD, JavaRDD}
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark._
 import org.apache.spark.rdd.RDD
-import org.apache.spark.util.Utils
+import org.apache.spark.util.{ConfigUtils, Utils}
 
 private[spark] class PythonRDD[T: ClassTag](
     parent: RDD[T],
@@ -41,7 +41,7 @@ private[spark] class PythonRDD[T: ClassTag](
     accumulator: Accumulator[JList[Array[Byte]]])
   extends RDD[Array[Byte]](parent) {
 
-  val bufferSize = System.getProperty("spark.buffer.size", "65536").toInt
+  val bufferSize = settings.bufferSize
 
   override def getPartitions = parent.partitions
 
@@ -254,7 +254,7 @@ private class PythonAccumulatorParam(@transient serverHost: String, serverPort: 
 
   Utils.checkHost(serverHost, "Expected hostname")
 
-  val bufferSize = System.getProperty("spark.buffer.size", "65536").toInt
+  val bufferSize = ConfigUtils.settings.bufferSize
 
   override def zero(value: JList[Array[Byte]]): JList[Array[Byte]] = new JArrayList
 

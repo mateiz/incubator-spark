@@ -26,7 +26,7 @@ import org.apache.spark._
 import org.apache.spark.scheduler._
 import org.apache.spark.executor.TaskMetrics
 import java.nio.ByteBuffer
-import org.apache.spark.util.{Utils, FakeClock}
+import org.apache.spark.util.{ConfigUtils, Utils, FakeClock}
 import org.apache.spark.util.CoreTestConfig._
 import scala.Some
 
@@ -83,8 +83,8 @@ class FakeClusterScheduler(sc: SparkContext, liveExecutors: (String, String)* /*
 
 class ClusterTaskSetManagerSuite extends FunSuite with LocalSparkContext with Logging {
   import TaskLocality.{ANY, PROCESS_LOCAL, NODE_LOCAL, RACK_LOCAL}
-
-  val LOCALITY_WAIT = System.getProperty("spark.locality.wait", "3000").toLong
+  val settings = ConfigUtils.settings
+  val LOCALITY_WAIT = settings.localityWait
 
   test("TaskSet with no preferences") {
     sc = new SparkContext("local", "test")

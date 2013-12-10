@@ -93,7 +93,7 @@ private[spark] class Worker(
   var coresUsed = 0
   var memoryUsed = 0
 
-  val metricsSystem = MetricsSystem.createMetricsSystem("worker")
+  val metricsSystem = MetricsSystem.createMetricsSystem("worker", settings)
   val workerSource = new WorkerSource(this)
 
   def coresFree: Int = cores - coresUsed

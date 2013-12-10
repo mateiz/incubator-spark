@@ -32,15 +32,17 @@ import org.apache.hadoop.yarn.api.protocolrecords._
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.hadoop.yarn.ipc.YarnRPC
 import org.apache.hadoop.yarn.util.{ConverterUtils, Records}
-import org.apache.spark.{SparkContext, Logging}
-import org.apache.spark.util.Utils
+import org.apache.spark.{SparkEnv, SparkContext, Logging}
+import org.apache.spark.util.{ConfigUtils, Utils}
 
 import scala.collection.JavaConversions._
+import scala.util.Try
 
-class ApplicationMaster(args: ApplicationMasterArguments, conf: Configuration) extends Logging {
+class ApplicationMaster(args: ApplicationMasterArguments, conf: Configuration,
+  var settings: SparkEnv.Settings) extends Logging {
 
-  def this(args: ApplicationMasterArguments) = this(args, new Configuration())
-  
+  def this(args: ApplicationMasterArguments, settings: SparkEnv.Settings) =
+    this(args, new Configuration(), settings)
   private var rpc: YarnRPC = YarnRPC.create(conf)
   private var resourceManager: AMRMProtocol = null
   private var appAttemptId: ApplicationAttemptId = null
@@ -55,8 +57,8 @@ class ApplicationMaster(args: ApplicationMasterArguments, conf: Configuration) e
     YarnConfiguration.DEFAULT_RM_AM_MAX_RETRIES)
   private var isLastAMRetry: Boolean = true
   // default to numWorkers * 2, with minimum of 3 
-  private val maxNumWorkerFailures = System.getProperty("spark.yarn.max.worker.failures",
-    math.max(args.numWorkers * 2, 3).toString()).toInt
+  private val maxNumWorkerFailures = Try(settings.yarnMaxNumWorkerFailures).
+    getOrElse(math.max(args.numWorkers * 2, 3))
 
   def run() {
     // setup the directories so things go to yarn approved directories rather
@@ -161,12 +163,12 @@ class ApplicationMaster(args: ApplicationMasterArguments, conf: Configuration) e
     logInfo("Waiting for spark driver to be reachable.")
     var driverUp = false
     var tries = 0
-    val numTries = System.getProperty("spark.yarn.applicationMaster.waitTries", "10").toInt
+    val numTries = settings.yarnWaitTries
     while(!driverUp && tries < numTries) {
-      val driverHost = System.getProperty("spark.driver.host")
-      val driverPort = System.getProperty("spark.driver.port")
+      val driverHost = settings.driverHost
+      val driverPort = settings.driverPort // TODO: this might throw exception.
       try {
-        val socket = new Socket(driverHost, driverPort.toInt)
+        val socket = new Socket(driverHost, driverPort)
         socket.close()
         logInfo("Driver now available: " + driverHost + ":" + driverPort)
         driverUp = true
@@ -218,24 +220,25 @@ class ApplicationMaster(args: ApplicationMasterArguments, conf: Configuration) e
       ApplicationMaster.sparkContextRef.synchronized {
         var count = 0
         val waitTime = 10000L
-        val numTries = System.getProperty("spark.yarn.ApplicationMaster.waitTries", "10").toInt
+        val numTries = settings.yarnWaitTries
         while (ApplicationMaster.sparkContextRef.get() == null && count < numTries) {
           logInfo("Waiting for spark context initialization ... " + count)
           count = count + 1
           ApplicationMaster.sparkContextRef.wait(waitTime)
         }
         sparkContext = ApplicationMaster.sparkContextRef.get()
+        settings = sparkContext.settings // update settings with sparkcontext's
         assert(sparkContext != null || count >= numTries)
 
         if (null != sparkContext) {
           uiAddress = sparkContext.ui.appUIAddress
-          this.yarnAllocator = YarnAllocationHandler.newAllocator(yarnConf, resourceManager, 
-            appAttemptId, args, sparkContext.preferredNodeLocationData) 
+          this.yarnAllocator = YarnAllocationHandler.newAllocator(yarnConf, resourceManager,
+            appAttemptId, args, settings, sparkContext.preferredNodeLocationData)
         } else {
           logWarning("Unable to retrieve sparkContext inspite of waiting for " + count * waitTime + 
             ", numTries = " + numTries)
           this.yarnAllocator = YarnAllocationHandler.newAllocator(yarnConf, resourceManager,
-            appAttemptId, args)
+            appAttemptId, args, settings)
         }
       }
     } finally {
@@ -276,8 +279,7 @@ class ApplicationMaster(args: ApplicationMasterArguments, conf: Configuration) e
       val timeoutInterval = yarnConf.getInt(YarnConfiguration.RM_AM_EXPIRY_INTERVAL_MS, 120000)
 
       // we want to be reasonably responsive without causing too many requests to RM.
-      val schedulerInterval = 
-        System.getProperty("spark.yarn.scheduler.heartbeat.interval-ms", "5000").toLong
+      val schedulerInterval = settings.yarnSchedulerInterval
 
       // must be <= timeoutInterval / 2.
       val interval = math.min(timeoutInterval / 2, schedulerInterval)
@@ -360,7 +362,7 @@ class ApplicationMaster(args: ApplicationMasterArguments, conf: Configuration) e
   private def cleanupStagingDir() { 
     var stagingDirPath: Path = null
     try {
-      val preserveFiles = System.getProperty("spark.yarn.preserve.staging.files", "false").toBoolean
+      val preserveFiles = settings.yarnPreserveFiles
       if (!preserveFiles) {
         stagingDirPath = new Path(System.getenv("SPARK_YARN_STAGING_DIR"))
         if (stagingDirPath == null) {
@@ -454,6 +456,6 @@ object ApplicationMaster {
 
   def main(argStrings: Array[String]) {
     val args = new ApplicationMasterArguments(argStrings)
-    new ApplicationMaster(args).run()
+    new ApplicationMaster(args, ConfigUtils.settings).run()
   }
 }

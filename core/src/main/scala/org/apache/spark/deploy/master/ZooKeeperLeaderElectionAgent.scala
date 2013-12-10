@@ -22,15 +22,16 @@ import org.apache.zookeeper._
 import org.apache.zookeeper.Watcher.Event.EventType
 
 import org.apache.spark.deploy.master.MasterMessages._
-import org.apache.spark.Logging
+import org.apache.spark.{SparkEnv, Logging}
 
-private[spark] class ZooKeeperLeaderElectionAgent(val masterActor: ActorRef, masterUrl: String)
-  extends LeaderElectionAgent with SparkZooKeeperWatcher with Logging  {
+private[spark] class ZooKeeperLeaderElectionAgent(val masterActor: ActorRef, masterUrl: String,
+  settings: SparkEnv.Settings) extends LeaderElectionAgent with SparkZooKeeperWatcher
+  with Logging  {
 
-  val WORKING_DIR = System.getProperty("spark.deploy.zookeeper.dir", "/spark") + "/leader_election"
+  val WORKING_DIR = settings.zkWorkingDir + "/leader_election"
 
   private val watcher = new ZooKeeperWatcher()
-  private val zk = new SparkZooKeeperSession(this)
+  private val zk = new SparkZooKeeperSession(this, settings)
   private var status = LeadershipStatus.NOT_LEADER
   private var myLeaderFile: String = _
   private var leaderUrl: String = _
