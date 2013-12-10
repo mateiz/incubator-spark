@@ -17,9 +17,9 @@
 
 package org.apache.spark.deploy.client
 
-import org.apache.spark.util.{ConfigUtils, Utils, AkkaUtils}
-import org.apache.spark.{SparkEnv, Logging}
-import org.apache.spark.deploy.{Command, ApplicationDescription}
+import org.apache.spark.{Logging, SparkEnv}
+import org.apache.spark.deploy.{ApplicationDescription, Command}
+import org.apache.spark.util.{AkkaUtils, ConfigUtils, Utils}
 
 private[spark] object TestClient {
 
@@ -45,12 +45,14 @@ private[spark] object TestClient {
 
   def main(args: Array[String]) {
     val url = args(0)
+    val settings = new SparkEnv.Settings(ConfigUtils.loadConfig())
     val (actorSystem, port) = AkkaUtils.createActorSystem("spark", Utils.localIpAddress, 0,
-      new SparkEnv.Settings(ConfigUtils.loadConfig()))
+      settings)
     val desc = new ApplicationDescription(
-      "TestClient", 1, 512, Command("spark.deploy.client.TestExecutor", Seq(), Map()), "dummy-spark-home", "ignored")
+      "TestClient", 1, 512, Command("spark.deploy.client.TestExecutor", Seq(), Map()),
+      "dummy-spark-home", "ignored")
     val listener = new TestListener
-    val client = new Client(actorSystem, Array(url), desc, listener)
+    val client = new Client(actorSystem, Array(url), desc, listener, settings)
     client.start()
     actorSystem.awaitTermination()
   }

@@ -380,6 +380,9 @@ object SparkEnv extends Logging {
       getOrElse("org.apache.spark.streaming.util.SystemClock")
     final val jumpTime = Try(getLong("spark.streaming.manualClock.jump")).getOrElse(0l)
 
-    
+    //yarn
+    final val yarnReplication = Try(getInt("spark.yarn.submit.file.replication")).getOrElse(3).toShort
+    final val yarnUserClasspathFirst = Try(getBoolean("spark.yarn.user.classpath.first")).getOrElse(false)
+
   }
 }

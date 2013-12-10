@@ -43,7 +43,6 @@ public class JavaSVMSuite implements Serializable {
   public void tearDown() {
     sc.stop();
     sc = null;
-    System.clearProperty("spark.driver.port");
   }
 
   int validatePrediction(List<LabeledPoint> validationData, SVMModel model) {

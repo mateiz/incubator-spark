@@ -27,7 +27,7 @@ import akka.pattern.AskTimeoutException
 import akka.pattern.ask
 import akka.remote.{RemotingLifecycleEvent, DisassociatedEvent, AssociationErrorEvent}
 
-import org.apache.spark.{SparkException, Logging}
+import org.apache.spark.{SparkEnv, SparkException, Logging}
 import org.apache.spark.deploy.{ApplicationDescription, ExecutorState}
 import org.apache.spark.deploy.DeployMessages._
 import org.apache.spark.deploy.master.Master
@@ -43,7 +43,8 @@ private[spark] class Client(
     actorSystem: ActorSystem,
     masterUrls: Array[String],
     appDescription: ApplicationDescription,
-    listener: ClientListener)
+    listener: ClientListener,
+    settings: SparkEnv.Settings)
   extends Logging {
 
   val REGISTRATION_TIMEOUT = 20.seconds
@@ -176,7 +177,7 @@ private[spark] class Client(
   def stop() {
     if (actor != null) {
       try {
-        val timeout = Duration.create(System.getProperty("spark.akka.askTimeout", "10").toLong, "seconds")
+        val timeout = Duration.create(settings.askTimeout, "seconds")
         val future = actor.ask(StopClient)(timeout)
         Await.result(future, timeout)
       } catch {

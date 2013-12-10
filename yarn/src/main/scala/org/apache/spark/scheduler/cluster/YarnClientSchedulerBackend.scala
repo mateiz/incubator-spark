@@ -52,8 +52,8 @@ private[spark] class YarnClientSchedulerBackend(
     if (workerNumber == null)
       workerNumber = defaultWorkerNumber
 
-    val driverHost = System.getProperty("spark.driver.host")
-    val driverPort = System.getProperty("spark.driver.port")
+    val driverHost = sc.settings.driverHost
+    val driverPort = sc.settings.driverPort
     val hostport = driverHost + ":" + driverPort
 
     val argsArray = Array[String](
@@ -67,7 +67,7 @@ private[spark] class YarnClientSchedulerBackend(
     )
 
     val args = new ClientArguments(argsArray)
-    client = new Client(args)
+    client = new Client(args, sc.settings)
     appId = client.runApp()
     waitForApp()
   }

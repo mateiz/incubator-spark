@@ -43,7 +43,6 @@ public class JavaALSSuite implements Serializable {
   public void tearDown() {
     sc.stop();
     sc = null;
-    System.clearProperty("spark.driver.port");
   }
 
   void validatePrediction(MatrixFactorizationModel model, int users, int products, int features, 

@@ -52,7 +52,7 @@ private[spark] class SparkDeploySchedulerBackend(
     val appDesc = new ApplicationDescription(appName, maxCores, sc.settings.executorMem, command,
       sparkHome, "http://" + sc.ui.appUIAddress)
 
-    client = new Client(sc.env.actorSystem, masters, appDesc, this)
+    client = new Client(sc.env.actorSystem, masters, appDesc, this, sc.settings)
     client.start()
   }
 
