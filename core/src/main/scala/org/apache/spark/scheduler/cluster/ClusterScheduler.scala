@@ -107,7 +107,7 @@ private[spark] class ClusterScheduler(val sc: SparkContext)
         case SchedulingMode.FIFO =>
           new FIFOSchedulableBuilder(rootPool)
         case SchedulingMode.FAIR =>
-          new FairSchedulableBuilder(rootPool)
+          new FairSchedulableBuilder(rootPool, sc.settings)
       }
     }
     schedulableBuilder.buildPools()

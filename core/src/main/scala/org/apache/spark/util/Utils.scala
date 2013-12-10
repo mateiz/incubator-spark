@@ -312,7 +312,7 @@ private[spark] object Utils extends Logging {
    * multiple paths.
    */
   def getLocalDir: String = {
-    System.getProperty("spark.local.dir", System.getProperty("java.io.tmpdir")).split(',')(0)
+    ConfigUtils.settings.sparkLocalDir.split(',')(0)
   }
 
   /**

@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.JavaConversions._
 
 import org.apache.spark.serializer.Serializer
-import org.apache.spark.util.{MetadataCleanerType, MetadataCleaner, TimeStampedHashMap}
+import org.apache.spark.util.{ConfigUtils, MetadataCleanerType, MetadataCleaner, TimeStampedHashMap}
 import org.apache.spark.util.collection.{PrimitiveKeyOpenHashMap, PrimitiveVector}
 import org.apache.spark.storage.ShuffleBlockManager.ShuffleFileGroup
 import scala.util.Try
@@ -61,12 +61,11 @@ private[spark] trait ShuffleWriterGroup {
  */
 private[spark]
 class ShuffleBlockManager(blockManager: BlockManager) {
+  val settings = Try(blockManager.settings).getOrElse(ConfigUtils.settings) // relevant for testing only.
   // Turning off shuffle file consolidation causes all shuffle Blocks to get their own file.
   // TODO: Remove this once the shuffle file consolidation feature is stable.
-  val consolidateShuffleFiles =
-    System.getProperty("spark.shuffle.consolidateFiles", "true").toBoolean
-
-  private val bufferSize = System.getProperty("spark.shuffle.file.buffer.kb", "100").toInt * 1024
+  val consolidateShuffleFiles = settings.consolidateShuffleFiles
+  private val bufferSize = settings.shuffleBufferSize * 1024
 
   /**
    * Contains all the state related to a particular shuffle. This includes a pool of unused
@@ -81,9 +80,8 @@ class ShuffleBlockManager(blockManager: BlockManager) {
   type ShuffleId = Int
   private val shuffleStates = new TimeStampedHashMap[ShuffleId, ShuffleState]
 
-  // Apparently in tests blockmanager is null so to cover that case we use Try. TODO: fixme
   private val metadataCleaner = new MetadataCleaner(MetadataCleanerType.SHUFFLE_BLOCK_MANAGER,
-    Try(blockManager.settings.cleanerTtl).getOrElse(3600), this.cleanup)
+    settings.cleanerTtl, this.cleanup)
 
   def forMapTask(shuffleId: Int, mapId: Int, numBuckets: Int, serializer: Serializer) = {
     new ShuffleWriterGroup {

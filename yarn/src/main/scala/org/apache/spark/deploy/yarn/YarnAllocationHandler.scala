@@ -17,7 +17,7 @@
 
 package org.apache.spark.deploy.yarn
 
-import org.apache.spark.Logging
+import org.apache.spark.{SparkEnv, Logging}
 import org.apache.spark.util.Utils
 import org.apache.spark.scheduler.SplitInfo
 import scala.collection
@@ -49,6 +49,7 @@ object AllocationType extends Enumeration {
 private[yarn] class YarnAllocationHandler(val conf: Configuration, val resourceManager: AMRMProtocol, 
                                           val appAttemptId: ApplicationAttemptId,
                                           val maxWorkers: Int, val workerMemory: Int, val workerCores: Int,
+                                          driverHost: String, driverPort: Int,
                                           val preferredHostToCount: Map[String, Int], 
                                           val preferredRackToCount: Map[String, Int])
   extends Logging {
@@ -212,7 +213,7 @@ private[yarn] class YarnAllocationHandler(val conf: Configuration, val resourceM
           // deallocate + allocate can result in reusing id's wrongly - so use a different counter (workerIdCounter)
           val workerId = workerIdCounter.incrementAndGet().toString
           val driverUrl = "akka.tcp://spark@%s:%s/user/%s".format(
-            System.getProperty("spark.driver.host"), System.getProperty("spark.driver.port"),
+            driverHost, driverPort,
             CoarseGrainedSchedulerBackend.ACTOR_NAME)
 
           logInfo("launching container on " + containerId + " host " + workerHostname)
@@ -491,32 +492,36 @@ object YarnAllocationHandler {
 
   def newAllocator(conf: Configuration,
                    resourceManager: AMRMProtocol, appAttemptId: ApplicationAttemptId,
-                   args: ApplicationMasterArguments): YarnAllocationHandler = {
+                   args: ApplicationMasterArguments,
+                   settings: SparkEnv.Settings): YarnAllocationHandler = {
 
     new YarnAllocationHandler(conf, resourceManager, appAttemptId, args.numWorkers, 
-      args.workerMemory, args.workerCores, Map[String, Int](), Map[String, Int]())
+      args.workerMemory, args.workerCores, settings.driverHost, settings.driverPort,
+      Map[String, Int](), Map[String, Int]())
   }
 
   def newAllocator(conf: Configuration,
                    resourceManager: AMRMProtocol, appAttemptId: ApplicationAttemptId,
                    args: ApplicationMasterArguments,
+                   settings: SparkEnv.Settings,
                    map: collection.Map[String, collection.Set[SplitInfo]]): YarnAllocationHandler = {
 
     val (hostToCount, rackToCount) = generateNodeToWeight(conf, map)
 
     new YarnAllocationHandler(conf, resourceManager, appAttemptId, args.numWorkers, 
-      args.workerMemory, args.workerCores, hostToCount, rackToCount)
+      args.workerMemory, args.workerCores,settings.driverHost,
+      settings.driverPort, hostToCount, rackToCount)
   }
 
   def newAllocator(conf: Configuration,
                    resourceManager: AMRMProtocol, appAttemptId: ApplicationAttemptId,
-                   maxWorkers: Int, workerMemory: Int, workerCores: Int,
+                   maxWorkers: Int, workerMemory: Int, workerCores: Int, settings: SparkEnv.Settings,
                    map: collection.Map[String, collection.Set[SplitInfo]]): YarnAllocationHandler = {
 
     val (hostToCount, rackToCount) = generateNodeToWeight(conf, map)
 
     new YarnAllocationHandler(conf, resourceManager, appAttemptId, maxWorkers,
-      workerMemory, workerCores, hostToCount, rackToCount)
+      workerMemory, workerCores, settings.driverHost, settings.driverPort, hostToCount, rackToCount)
   }
 
   // A simple method to copy the split info map.

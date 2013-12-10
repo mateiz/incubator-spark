@@ -17,10 +17,11 @@
 
 package org.apache.spark
 
-import org.apache.spark.util.Utils
-import org.apache.spark.rdd.RDD
-
 import scala.reflect.ClassTag
+import scala.util.{Failure, Success => ScalaSuccess, Try}
+
+import org.apache.spark.rdd.RDD
+import org.apache.spark.util.Utils
 
 /**
  * An object that defines how the elements in a key-value pair RDD are partitioned by key.
@@ -52,10 +53,9 @@ object Partitioner {
     for (r <- bySize if r.partitioner != None) {
       return r.partitioner.get
     }
-    if (System.getProperty("spark.default.parallelism") != null) {
-      return new HashPartitioner(rdd.context.defaultParallelism)
-    } else {
-      return new HashPartitioner(bySize.head.partitions.size)
+    Try(rdd.settings.defaultParallelism) match {
+      case _: ScalaSuccess[Boolean] => new HashPartitioner(rdd.context.defaultParallelism)
+      case Failure(_) => new HashPartitioner(bySize.head.partitions.size)
     }
   }
 }

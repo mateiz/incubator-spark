@@ -17,6 +17,8 @@
 
 package org.apache.spark
 
+import java.lang.System
+
 import scala.collection.mutable
 import scala.util.Try
 
@@ -26,10 +28,13 @@ import com.typesafe.config.{Config, ConfigFactory}
 
 import org.apache.spark.api.python.PythonWorkerFactory
 import org.apache.spark.broadcast.BroadcastManager
+import org.apache.spark.deploy.worker.ui.WorkerWebUI
+import org.apache.spark.io.LZFCompressionCodec
 import org.apache.spark.metrics.MetricsSystem
 import org.apache.spark.network.ConnectionManager
 import org.apache.spark.serializer.{Serializer, SerializerManager}
 import org.apache.spark.storage.{BlockManager, BlockManagerMaster, BlockManagerMasterActor}
+import org.apache.spark.ui.SparkUI
 import org.apache.spark.util.{AkkaUtils, Utils}
 
 /**
@@ -200,9 +205,9 @@ object SparkEnv extends Logging {
     val shuffleFetcher = instantiateClass[ShuffleFetcher](settings.shuffleFetcher)
 
     val metricsSystem = if (isDriver) {
-      MetricsSystem.createMetricsSystem("driver")
+      MetricsSystem.createMetricsSystem("driver", settings)
     } else {
-      MetricsSystem.createMetricsSystem("executor")
+      MetricsSystem.createMetricsSystem("executor", settings)
     }
     metricsSystem.start()
 
@@ -243,6 +248,8 @@ object SparkEnv extends Logging {
   /**
    * Optional configurations are defined as def for they will raise exception which can be
    * handled and the optional path be taken.
+   * Note: Properties that do not have a default alternative can not be kept as val, use def
+   * instead.
    */
   private[spark] class Settings(val conf: Config) {
 
@@ -265,6 +272,15 @@ object SparkEnv extends Logging {
 
     final val shuffleFetcher = Try(getString("spark.shuffle.fetcher"))
       .getOrElse("org.apache.spark.BlockStoreShuffleFetcher")
+    final def useCompressedOops = getBoolean("spark.test.useCompressedOops")
+    final val retainedStages = Try(getInt("spark.ui.retained_stages")).getOrElse(1000)
+    final val sparkUiPort = Try(getInt("spark.ui.port")).getOrElse(SparkUI.DEFAULT_PORT)
+    final val consolidateShuffleFiles = Try(getBoolean("spark.shuffle.consolidateFiles")).
+      getOrElse(true)
+    final val shuffleBufferSize = Try(getInt("spark.shuffle.file.buffer.kb")).getOrElse(100)
+    final val subDirsPerLocalDir = Try(getInt("spark.diskStore.subDirectories")).getOrElse(64)
+    final val shuffleSyncWrites = Try(getBoolean("spark.shuffle.sync")).getOrElse(false)
+    final val shuffleCopierThreads = Try(getInt("spark.shuffle.copier.threads")).getOrElse(6)
 
     /** Only set at driver, the defaults are replaced once ActorSystem is initialized
       * and reflected in augmented settings created, which is used everywhere.*/
@@ -283,6 +299,21 @@ object SparkEnv extends Logging {
       .map(Utils.memoryStringToMb)
       .getOrElse(512)
 
+    final def defaultParallelism = getBoolean("spark.default.parallelism")
+
+    final val zkWorkingDir = Try(getString("spark.deploy.zookeeper.dir")).getOrElse("/spark")
+    final val zkUrl = Try(getString("spark.deploy.zookeeper.url")).getOrElse("")
+
+    final def metricsConfFile = getString("spark.metrics.conf")
+
+    final def executorUri = getString("spark.executor.uri")
+    final val resultGetterThreads = Try(getInt("spark.resultGetter.threads")).getOrElse(4)
+    final val schedulerReviveInterval = Try(getLong("spark.scheduler.revive.interval")).getOrElse(1000l)
+
+    // Kryo Related
+    final val kryoReferenceTracking = Try(getBoolean("spark.kryo.referenceTracking")).getOrElse(true)
+    final val kryoSerializerBufferMb = Try(getInt("spark.kryoserializer.buffer.mb")).getOrElse(2)
+    final def kryoRegistrator =  Try(getString("spark.kryo.registrator")).toOption
     // Broadcast Related
     final val compressBroadcast = Try(getBoolean("spark.broadcast.compress")).getOrElse(true)
     final val httpBroadcastURI = Try(getString("spark.httpBroadcast.uri")).getOrElse("")
@@ -310,6 +341,7 @@ object SparkEnv extends Logging {
     final val simrMaxCores = Try(getInt("spark.simr.executor.cores")).getOrElse(1)
     final val maxCores = Try(getInt("spark.cores.max")).getOrElse(Int.MaxValue)
     final val mesosExtraCoresPerSlave = Try(getInt("spark.mesos.extra.cores")).getOrElse(0)
+    final def schedulerAllocationFile = getString("spark.scheduler.allocation.file")
 
     //Blockmanager related
     final def maxMemBlockManager = Try(getLong("spark.storage.blockmanager.maxmem"))
@@ -347,7 +379,14 @@ object SparkEnv extends Logging {
     final val localityWaitRack = Try(getLong("spark.locality.wait.rack")).getOrElse(localityWait)
     final val exceptionPrintInterval = Try(getLong("spark.logging.exceptionPrintInterval")).
       getOrElse(10000l)
-
+    val shuffleNettyConnectTimeout = Try(getInt("spark.shuffle.netty.connect.timeout")).
+      getOrElse(60000)
+    
+    //Compression related
+    final val compressionCodec = Try(getString("spark.io.compression.codec")).
+      getOrElse(classOf[LZFCompressionCodec].getName)
+    final val snappyCompressionBlockSize = Try(getInt("spark.io.compression.snappy.block.size")).
+      getOrElse(32768)
     //Connection Manager related
     final val handlerMinThreads = Try(getInt("spark.core.connection.handler.threads.min")).
       getOrElse(20)
@@ -372,6 +411,8 @@ object SparkEnv extends Logging {
     final val recoveryDir = Try(getString("spark.deploy.recoveryDirectory")).getOrElse("")
     final val recoveryMode = Try(getString("spark.deploy.recoveryMode")).getOrElse("NONE")
     final val spreadOutApps = Try(getBoolean("spark.deploy.spreadOut")).getOrElse(true)
+    final def masterUiPort = getInt("master.ui.port")
+    final val workerUiPort = Try(getInt("worker.ui.port")).getOrElse(WorkerWebUI.DEFAULT_PORT)
 
     //Streaming
     final val blockInterval = Try(getLong("spark.streaming.blockInterval")).getOrElse(200l)
@@ -382,7 +423,13 @@ object SparkEnv extends Logging {
 
     //yarn
     final val yarnReplication = Try(getInt("spark.yarn.submit.file.replication")).getOrElse(3).toShort
-    final val yarnUserClasspathFirst = Try(getBoolean("spark.yarn.user.classpath.first")).getOrElse(false)
+    final val yarnUserClasspathFirst = Try(getBoolean("spark.yarn.user.classpath.first")).
+      getOrElse(false)
+    final def yarnMaxNumWorkerFailures = getInt("spark.yarn.max.worker.failures")
+    final val yarnWaitTries = Try(getInt("spark.yarn.applicationMaster.waitTries")).getOrElse(10)
+    final val yarnSchedulerInterval = Try(getLong("spark.yarn.scheduler.heartbeat.interval-ms")).
+      getOrElse(5000l)
+    val yarnPreserveFiles = Try(getBoolean("spark.yarn.preserve.staging.files")).getOrElse(false)
 
   }
 }

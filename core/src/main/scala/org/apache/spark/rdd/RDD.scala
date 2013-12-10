@@ -81,6 +81,9 @@ abstract class RDD[T: ClassTag](
   def this(@transient oneParent: RDD[_]) =
     this(oneParent.context , List(new OneToOneDependency(oneParent)))
 
+  @transient
+  def settings = sc.settings
+
   // =======================================================================
   // Methods that should be implemented by subclasses of RDD
   // =======================================================================

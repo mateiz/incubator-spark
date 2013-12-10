@@ -17,27 +17,25 @@
 
 package org.apache.spark.serializer
 
-import java.nio.ByteBuffer
 import java.io.{EOFException, InputStream, OutputStream}
+import java.nio.ByteBuffer
 
-import com.esotericsoftware.kryo.serializers.{JavaSerializer => KryoJavaSerializer}
-import com.esotericsoftware.kryo.{KryoException, Kryo}
+import com.esotericsoftware.kryo.{Kryo, KryoException}
 import com.esotericsoftware.kryo.io.{Input => KryoInput, Output => KryoOutput}
-import com.twitter.chill.{EmptyScalaKryoInstantiator, AllScalaRegistrar}
-
-import org.apache.spark.{SerializableWritable, Logging}
+import com.esotericsoftware.kryo.serializers.{JavaSerializer => KryoJavaSerializer}
+import com.twitter.chill.{AllScalaRegistrar, EmptyScalaKryoInstantiator}
+import org.apache.spark.{Logging, SerializableWritable}
 import org.apache.spark.broadcast.HttpBroadcast
 import org.apache.spark.scheduler.MapStatus
 import org.apache.spark.storage._
+import org.apache.spark.util.ConfigUtils
 
 /**
  * A Spark serializer that uses the [[https://code.google.com/p/kryo/ Kryo serialization library]].
  */
 class KryoSerializer extends org.apache.spark.serializer.Serializer with Logging {
-
-  private val bufferSize = {
-    System.getProperty("spark.kryoserializer.buffer.mb", "2").toInt * 1024 * 1024
-  }
+  @transient val settings = ConfigUtils.settings
+  private val bufferSize = settings.kryoSerializerBufferMb * 1024 * 1024
 
   def newKryoOutput() = new KryoOutput(bufferSize)
 
@@ -48,7 +46,7 @@ class KryoSerializer extends org.apache.spark.serializer.Serializer with Logging
 
     // Allow disabling Kryo reference tracking if user knows their object graphs don't have loops.
     // Do this before we invoke the user registrator so the user registrator can override this.
-    kryo.setReferences(System.getProperty("spark.kryo.referenceTracking", "true").toBoolean)
+    kryo.setReferences(settings.kryoReferenceTracking)
 
     for (cls <- KryoSerializer.toRegister) kryo.register(cls)
 
@@ -58,7 +56,7 @@ class KryoSerializer extends org.apache.spark.serializer.Serializer with Logging
 
     // Allow the user to register their own classes by setting spark.kryo.registrator
     try {
-      Option(System.getProperty("spark.kryo.registrator")).foreach { regCls =>
+      settings.kryoRegistrator.foreach { regCls =>
         logDebug("Running user registrator: " + regCls)
         val reg = Class.forName(regCls, true, classLoader).newInstance().asInstanceOf[KryoRegistrator]
         reg.registerClasses(kryo)

@@ -180,7 +180,8 @@ class WorkerLauncher(args: ApplicationMasterArguments, conf: Configuration,
     // Fixme: should get preferredNodeLocationData from SparkContext, just fake a empty one for now.
     val preferredNodeLocationData: scala.collection.Map[String, scala.collection.Set[SplitInfo]] = scala.collection.immutable.Map()
 
-    yarnAllocator = YarnAllocationHandler.newAllocator(yarnConf, resourceManager, appAttemptId, args, preferredNodeLocationData)
+    yarnAllocator = YarnAllocationHandler.newAllocator(yarnConf, resourceManager, appAttemptId, args,
+      settings, preferredNodeLocationData)
 
     logInfo("Allocating " + args.numWorkers + " workers.")
     // Wait until all containers have finished

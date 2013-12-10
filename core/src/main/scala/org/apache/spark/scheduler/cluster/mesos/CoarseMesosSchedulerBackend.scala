@@ -31,6 +31,7 @@ import org.apache.mesos.Protos.{TaskInfo => MesosTaskInfo, TaskState => MesosTas
 
 import org.apache.spark.{SparkException, Logging, SparkContext, TaskState}
 import org.apache.spark.scheduler.cluster.{ClusterScheduler, CoarseGrainedSchedulerBackend}
+import scala.util.{Success, Try}
 
 /**
  * A SchedulerBackend that runs tasks on Mesos, but uses "coarse-grained" tasks, where it holds
@@ -123,22 +124,23 @@ private[spark] class CoarseMesosSchedulerBackend(
     val driverUrl = "akka.tcp://spark@%s:%s/user/%s".format(
       driverHost, driverPort,
       CoarseGrainedSchedulerBackend.ACTOR_NAME)
-    val uri = System.getProperty("spark.executor.uri")
-    if (uri == null) {
-      val runScript = new File(sparkHome, "spark-class").getCanonicalPath
-      command.setValue(
-        "\"%s\" org.apache.spark.executor.CoarseGrainedExecutorBackend %s %s %s %d".format(
-          runScript, driverUrl, offer.getSlaveId.getValue, offer.getHostname, numCores))
-    } else {
-      // Grab everything to the first '.'. We'll use that and '*' to
-      // glob the directory "correctly".
-      val basename = uri.split('/').last.split('.').head
-      command.setValue(
-        "cd %s*; ./spark-class org.apache.spark.executor.CoarseGrainedExecutorBackend %s %s %s %d"
-          .format(basename, driverUrl, offer.getSlaveId.getValue, offer.getHostname, numCores))
-      command.addUris(CommandInfo.URI.newBuilder().setValue(uri))
+    Try(sc.settings.executorUri) match {
+      case Success(uri: String) =>
+        // Grab everything to the first '.'. We'll use that and '*' to
+        // glob the directory "correctly".
+        val basename = uri.split('/').last.split('.').head
+        command.setValue(
+          "cd %s*; ./spark-class org.apache.spark.executor.CoarseGrainedExecutorBackend %s %s %s %d"
+            .format(basename, driverUrl, offer.getSlaveId.getValue, offer.getHostname, numCores))
+        command.addUris(CommandInfo.URI.newBuilder().setValue(uri))
+      case _ =>
+        val runScript = new File(sparkHome, "spark-class").getCanonicalPath
+        command.setValue(
+          "\"%s\" org.apache.spark.executor.CoarseGrainedExecutorBackend %s %s %s %d".format(
+            runScript, driverUrl, offer.getSlaveId.getValue, offer.getHostname, numCores))
     }
-    return command.build()
+
+    command.build()
   }
 
   override def offerRescinded(d: SchedulerDriver, o: OfferID) {}

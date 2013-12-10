@@ -69,8 +69,8 @@ private[spark] class Master(host: String, port: Int, webUiPort: Int,
 
   Utils.checkHost(host, "Expected hostname")
 
-  val masterMetricsSystem = MetricsSystem.createMetricsSystem("master")
-  val applicationMetricsSystem = MetricsSystem.createMetricsSystem("applications")
+  val masterMetricsSystem = MetricsSystem.createMetricsSystem("master", settings)
+  val applicationMetricsSystem = MetricsSystem.createMetricsSystem("applications", settings)
   val masterSource = new MasterSource(this)
 
   val webUi = new MasterWebUI(this, webUiPort)
@@ -109,7 +109,7 @@ private[spark] class Master(host: String, port: Int, webUiPort: Int,
     persistenceEngine = RECOVERY_MODE match {
       case "ZOOKEEPER" =>
         logInfo("Persisting recovery state to ZooKeeper")
-        new ZooKeeperPersistenceEngine(SerializationExtension(context.system))
+        new ZooKeeperPersistenceEngine(SerializationExtension(context.system), settings)
       case "FILESYSTEM" =>
         logInfo("Persisting recovery state to directory: " + RECOVERY_DIR)
         new FileSystemPersistenceEngine(RECOVERY_DIR, SerializationExtension(context.system))
@@ -119,7 +119,7 @@ private[spark] class Master(host: String, port: Int, webUiPort: Int,
 
     leaderElectionAgent = RECOVERY_MODE match {
         case "ZOOKEEPER" =>
-          context.actorOf(Props(classOf[ZooKeeperLeaderElectionAgent], self, masterUrl))
+          context.actorOf(Props(classOf[ZooKeeperLeaderElectionAgent], self, masterUrl, settings))
         case _ =>
           context.actorOf(Props(classOf[MonarchyLeaderAgent], self))
       }
@@ -519,6 +519,7 @@ private[spark] object Master {
   val systemName = "sparkMaster"
   private val actorName = "Master"
   val sparkUrlRegex = "spark://([^:]+):([0-9]+)".r
+  private val settings = ConfigUtils.settings
 
   def main(argStrings: Array[String]) {
     val args = new MasterArguments(argStrings)
@@ -537,7 +538,6 @@ private[spark] object Master {
   }
 
   def startSystemAndActor(host: String, port: Int, webUiPort: Int): (ActorSystem, Int, Int) = {
-    val settings = new SparkEnv.Settings(ConfigUtils.loadConfig())
     val (actorSystem, boundPort) = AkkaUtils.createActorSystem(systemName, host, port, settings)
     val actor = actorSystem.actorOf(Props(classOf[Master], host, boundPort, webUiPort, settings),
       name = actorName)

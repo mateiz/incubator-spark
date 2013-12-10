@@ -19,16 +19,16 @@ package org.apache.spark.network.netty
 
 import java.util.concurrent.Executors
 
+import scala.collection.JavaConverters._
+
 import io.netty.buffer.ByteBuf
 import io.netty.channel.ChannelHandlerContext
 import io.netty.util.CharsetUtil
 
 import org.apache.spark.Logging
 import org.apache.spark.network.ConnectionManagerId
-
-import scala.collection.JavaConverters._
 import org.apache.spark.storage.BlockId
-
+import org.apache.spark.util.ConfigUtils
 
 private[spark] class ShuffleCopier extends Logging {
 
@@ -36,7 +36,7 @@ private[spark] class ShuffleCopier extends Logging {
       resultCollectCallback: (BlockId, Long, ByteBuf) => Unit) {
 
     val handler = new ShuffleCopier.ShuffleClientHandler(resultCollectCallback)
-    val connectTimeout = System.getProperty("spark.shuffle.netty.connect.timeout", "60000").toInt
+    val connectTimeout = ConfigUtils.settings.shuffleNettyConnectTimeout
     val fc = new FileClient(handler, connectTimeout)
 
     try {

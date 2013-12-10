@@ -1,11 +1,13 @@
 package org.apache.spark.storage
 
-import java.io.{FileWriter, File}
+import java.io.{File, FileWriter}
 
 import scala.collection.mutable
 
+import akka.actor.ActorSystem
 import com.google.common.io.Files
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
+import org.apache.spark.util.ConfigUtils
 
 class DiskBlockManagerSuite extends FunSuite with BeforeAndAfterEach {
 

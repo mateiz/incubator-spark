@@ -17,17 +17,13 @@
 
 package org.apache.spark.util
 
-import java.lang.reflect.Field
-import java.lang.reflect.Modifier
-import java.lang.reflect.{Array => JArray}
-import java.util.IdentityHashMap
-import java.util.concurrent.ConcurrentHashMap
-import java.util.Random
-
-import javax.management.MBeanServer
 import java.lang.management.ManagementFactory
+import java.lang.reflect.{Array => JArray, Field, Modifier}
+import java.util.{IdentityHashMap, Random}
+import java.util.concurrent.ConcurrentHashMap
 
 import scala.collection.mutable.ArrayBuffer
+import scala.util.{Success => ScalaSuccess, Try}
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 import org.apache.spark.Logging
@@ -54,7 +50,7 @@ private[spark] object SizeEstimator extends Logging {
   // Alignment boundary for objects
   // TODO: Is this arch dependent ?
   private val ALIGN_SIZE = 8
-
+  private[spark] var settings = ConfigUtils.settings //var for testing only.
   // A cache of ClassInfo objects for each class
   private val classInfos = new ConcurrentHashMap[Class[_], ClassInfo]
 
@@ -90,8 +86,9 @@ private[spark] object SizeEstimator extends Logging {
   }
 
   private def getIsCompressedOops : Boolean = {
-    if (System.getProperty("spark.test.useCompressedOops") != null) {
-      return System.getProperty("spark.test.useCompressedOops").toBoolean 
+    Try(settings.useCompressedOops) match {
+      case ScalaSuccess(x: Boolean) => return x
+      case _ =>
     }
 
     try {

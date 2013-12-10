@@ -22,6 +22,7 @@ import scala.collection.mutable.HashMap
 import scala.collection.{Map => AnyMap}
 
 import com.typesafe.config.{Config, ConfigFactory, ConfigParseOptions}
+import org.apache.spark.SparkEnv
 
 /**
  * Methods and implicits for convenience in working with Typesafe Config objects
@@ -31,7 +32,9 @@ object ConfigUtils {
 
   val SparkDefaultConf = "org/apache/spark/spark-defaults.conf"
   val SparkConfigUrlProperty = "spark.config.url"
-
+  // This may be used for global settings only as in the ones used in Singletons(object).
+  // otherwise use the settings object propagated via sparkcontext.
+  lazy val settings = new SparkEnv.Settings(ConfigUtils.loadConfig())
   // Change the default parse options so that missing files throw an exception, instead of returning empty
   val parseOptions = ConfigParseOptions.defaults.setAllowMissing(false)
 

@@ -22,6 +22,7 @@ import java.io.{InputStream, OutputStream}
 import com.ning.compress.lzf.{LZFInputStream, LZFOutputStream}
 
 import org.xerial.snappy.{SnappyInputStream, SnappyOutputStream}
+import org.apache.spark.util.ConfigUtils
 
 
 /**
@@ -39,8 +40,7 @@ trait CompressionCodec {
 private[spark] object CompressionCodec {
 
   def createCodec(): CompressionCodec = {
-    createCodec(System.getProperty(
-      "spark.io.compression.codec", classOf[LZFCompressionCodec].getName))
+    createCodec(ConfigUtils.settings.compressionCodec)
   }
 
   def createCodec(codecName: String): CompressionCodec = {
@@ -70,7 +70,7 @@ class LZFCompressionCodec extends CompressionCodec {
 class SnappyCompressionCodec extends CompressionCodec {
 
   override def compressedOutputStream(s: OutputStream): OutputStream = {
-    val blockSize = System.getProperty("spark.io.compression.snappy.block.size", "32768").toInt
+    val blockSize = ConfigUtils.settings.snappyCompressionBlockSize
     new SnappyOutputStream(s, blockSize)
   }
 

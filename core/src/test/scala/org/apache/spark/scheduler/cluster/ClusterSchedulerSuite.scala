@@ -28,6 +28,7 @@ import scala.collection.mutable.ArrayBuffer
 import java.util.Properties
 import org.apache.spark.util.CoreTestConfig._
 import scala.Some
+import com.typesafe.config.ConfigFactory
 
 class FakeTaskSetManager(
     initPriority: Int,
@@ -134,7 +135,7 @@ class ClusterSchedulerSuite extends FunSuite with LocalSparkContext with Logging
   }
 
   test("FIFO Scheduler Test") {
-    sc = new SparkContext("local", "ClusterSchedulerSuite", config)
+    sc = new SparkContext("local", "ClusterSchedulerSuite")
     val clusterScheduler = new ClusterScheduler(sc)
     var tasks = ArrayBuffer[Task[_]]()
     val task = new FakeTask(0)
@@ -161,17 +162,16 @@ class ClusterSchedulerSuite extends FunSuite with LocalSparkContext with Logging
   }
 
   test("Fair Scheduler Test") {
-    sc = new SparkContext("local", "ClusterSchedulerSuite", config)
+    val xmlPath = getClass.getClassLoader.getResource("fairscheduler.xml").getFile()
+    val c = ConfigFactory.parseString(s"spark.scheduler.allocation.file=$xmlPath")
+    sc = new SparkContext("local", "ClusterSchedulerSuite", c)
     val clusterScheduler = new ClusterScheduler(sc)
     var tasks = ArrayBuffer[Task[_]]()
     val task = new FakeTask(0)
     tasks += task
     val taskSet = new TaskSet(tasks.toArray,0,0,0,null)
-
-    val xmlPath = getClass.getClassLoader.getResource("fairscheduler.xml").getFile()
-    System.setProperty("spark.scheduler.allocation.file", xmlPath)
     val rootPool = new Pool("", SchedulingMode.FAIR, 0, 0)
-    val schedulableBuilder = new FairSchedulableBuilder(rootPool)
+    val schedulableBuilder = new FairSchedulableBuilder(rootPool, sc.settings)
     schedulableBuilder.buildPools()
 
     assert(rootPool.getSchedulableByName("default") != null)
@@ -218,7 +218,7 @@ class ClusterSchedulerSuite extends FunSuite with LocalSparkContext with Logging
   }
 
   test("Nested Pool Test") {
-    sc = new SparkContext("local", "ClusterSchedulerSuite", config)
+    sc = new SparkContext("local", "ClusterSchedulerSuite")
     val clusterScheduler = new ClusterScheduler(sc)
     var tasks = ArrayBuffer[Task[_]]()
     val task = new FakeTask(0)

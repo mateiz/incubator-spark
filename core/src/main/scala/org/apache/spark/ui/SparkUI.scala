@@ -32,7 +32,7 @@ import org.apache.spark.util.Utils
 /** Top level user interface for Spark */
 private[spark] class SparkUI(sc: SparkContext) extends Logging {
   val host = Option(System.getenv("SPARK_PUBLIC_DNS")).getOrElse(Utils.localHostName())
-  val port = Option(System.getProperty("spark.ui.port")).getOrElse(SparkUI.DEFAULT_PORT).toInt
+  val port = sc.settings.sparkUiPort
   var boundPort: Option[Int] = None
   var server: Option[Server] = None
 
@@ -84,6 +84,6 @@ private[spark] class SparkUI(sc: SparkContext) extends Logging {
 }
 
 private[spark] object SparkUI {
-  val DEFAULT_PORT = "4040"
+  val DEFAULT_PORT = 4040
   val STATIC_RESOURCE_DIR = "org/apache/spark/ui/static"
 }

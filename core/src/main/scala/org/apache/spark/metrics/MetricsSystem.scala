@@ -17,14 +17,14 @@
 
 package org.apache.spark.metrics
 
-import com.codahale.metrics.{Metric, MetricFilter, MetricRegistry}
-
 import java.util.Properties
 import java.util.concurrent.TimeUnit
 
 import scala.collection.mutable
+import scala.util.Try
 
-import org.apache.spark.Logging
+import com.codahale.metrics.{Metric, MetricFilter, MetricRegistry}
+import org.apache.spark.{Logging, SparkEnv}
 import org.apache.spark.metrics.sink.{MetricsServlet, Sink}
 import org.apache.spark.metrics.source.Source
 
@@ -62,11 +62,12 @@ import org.apache.spark.metrics.source.Source
  *
  * [options] is the specific property of this source or sink.
  */
-private[spark] class MetricsSystem private (val instance: String) extends Logging {
+private[spark] class MetricsSystem private (val instance: String, settings: SparkEnv.Settings)
+  extends Logging {
   initLogging()
 
-  val confFile = System.getProperty("spark.metrics.conf")
-  val metricsConfig = new MetricsConfig(Option(confFile))
+  val confFile = Try(settings.metricsConfFile).toOption
+  val metricsConfig = new MetricsConfig(confFile)
 
   val sinks = new mutable.ArrayBuffer[Sink]
   val sources = new mutable.ArrayBuffer[Source]
@@ -159,5 +160,6 @@ private[spark] object MetricsSystem {
     }
   }
 
-  def createMetricsSystem(instance: String): MetricsSystem = new MetricsSystem(instance)
+  def createMetricsSystem(instance: String, settings: SparkEnv.Settings): MetricsSystem =
+    new MetricsSystem(instance, settings)
 }

@@ -19,17 +19,15 @@ package org.apache.spark.metrics
 
 import org.scalatest.{BeforeAndAfter, FunSuite}
 import org.apache.spark.deploy.master.MasterSource
+import org.apache.spark.SparkEnv
+import com.typesafe.config.ConfigFactory
 
 class MetricsSystemSuite extends FunSuite with BeforeAndAfter {
-  var filePath: String = _
-
-  before {
-    filePath = getClass.getClassLoader.getResource("test_metrics_system.properties").getFile()
-    System.setProperty("spark.metrics.conf", filePath)
-  }
+  var filePath = getClass.getClassLoader.getResource("test_metrics_system.properties").getFile
+  val settings = new SparkEnv.Settings(ConfigFactory.parseString(s"spark.metrics.conf=$filePath"))
 
   test("MetricsSystem with default config") {
-    val metricsSystem = MetricsSystem.createMetricsSystem("default")
+    val metricsSystem = MetricsSystem.createMetricsSystem("default", settings)
     val sources = metricsSystem.sources
     val sinks = metricsSystem.sinks
 
@@ -39,7 +37,7 @@ class MetricsSystemSuite extends FunSuite with BeforeAndAfter {
   }
 
   test("MetricsSystem with sources add") {
-    val metricsSystem = MetricsSystem.createMetricsSystem("test")
+    val metricsSystem = MetricsSystem.createMetricsSystem("test", settings)
     val sources = metricsSystem.sources
     val sinks = metricsSystem.sinks
 

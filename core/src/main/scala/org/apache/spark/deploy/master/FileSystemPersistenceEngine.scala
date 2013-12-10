@@ -22,7 +22,7 @@ import java.io._
 import scala.Serializable
 
 import akka.serialization.Serialization
-import org.apache.spark.Logging
+import org.apache.spark.{SparkEnv, Logging}
 
 /**
  * Stores data in a single on-disk directory with one file per application and worker.
