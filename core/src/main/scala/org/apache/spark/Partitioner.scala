@@ -57,7 +57,7 @@ object Partitioner {
       return r.partitioner.get
     }
     Try(rdd.settings.defaultParallelism) match {
-      case _: ScalaSuccess[Boolean] => new HashPartitioner(rdd.context.defaultParallelism)
+      case _: ScalaSuccess[_] => new HashPartitioner(rdd.context.defaultParallelism)
       case Failure(_) => new HashPartitioner(bySize.head.partitions.size)
     }
   }

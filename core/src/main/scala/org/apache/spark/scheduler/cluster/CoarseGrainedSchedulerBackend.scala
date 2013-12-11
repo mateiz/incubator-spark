@@ -33,6 +33,7 @@ import org.apache.spark.{SparkEnv, SparkException, Logging, TaskState}
 import org.apache.spark.scheduler.TaskDescription
 import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages._
 import org.apache.spark.util.Utils
+import scala.util.Try
 
 /**
  * A scheduler backend that waits for coarse grained executors to connect to it through Akka.
@@ -204,8 +205,8 @@ class CoarseGrainedSchedulerBackend(scheduler: ClusterScheduler, actorSystem: Ac
     driverActor ! KillTask(taskId, executorId)
   }
 
-  override def defaultParallelism() = Option(System.getProperty("spark.default.parallelism"))
-      .map(_.toInt).getOrElse(math.max(totalCoreCount.get(), 2))
+  override def defaultParallelism() = Try(scheduler.sc.settings.defaultParallelism).toOption
+    .getOrElse(math.max(totalCoreCount.get(), 2))
 
   // Called by subclasses when notified of a lost worker
   def removeExecutor(executorId: String, reason: String) {

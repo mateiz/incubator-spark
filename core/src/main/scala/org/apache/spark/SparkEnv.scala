@@ -299,7 +299,7 @@ object SparkEnv extends Logging {
       .map(Utils.memoryStringToMb)
       .getOrElse(512)
 
-    final def defaultParallelism = getBoolean("spark.default.parallelism")
+    final def defaultParallelism = getInt("spark.default.parallelism")
 
     final val zkWorkingDir = Try(getString("spark.deploy.zookeeper.dir")).getOrElse("/spark")
     final val zkUrl = Try(getString("spark.deploy.zookeeper.url")).getOrElse("")
