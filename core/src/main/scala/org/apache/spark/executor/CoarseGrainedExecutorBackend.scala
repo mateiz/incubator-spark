@@ -100,7 +100,7 @@ private[spark] object CoarseGrainedExecutorBackend {
     // Create a new ActorSystem to run the backend, because we can't create a SparkEnv / Executor
     // before getting started with all our system properties, etc
     val (actorSystem, boundPort) = AkkaUtils.createActorSystem("sparkExecutor", hostname, 0,
-    new SparkEnv.Settings(ConfigFactory.empty()))
+      new SparkEnv.Settings(ConfigFactory.empty()), indestructible = true)
 
     // set it
     val sparkHostPort = hostname + ":" + boundPort

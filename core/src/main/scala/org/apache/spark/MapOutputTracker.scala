@@ -73,12 +73,11 @@ private[spark] class MapOutputTracker(settings: SparkEnv.Settings) extends Loggi
   // throw a SparkException if this fails.
   private def askTracker(message: Any): Any = {
     try {
-      val future = if (trackerActor.isLeft ) {
-        trackerActor.left.get.ask(message)(timeout)
-      } else {
-        trackerActor.right.get.ask(message)(timeout)
+      val future = trackerActor match {
+        case Left(a: ActorRef) => a.ask(message)(timeout)
+        case Right(b: ActorSelection) => b.ask(message)(timeout)
       }
-      return Await.result(future, timeout)
+      Await.result(future, timeout)
     } catch {
       case e: Exception =>
         throw new SparkException("Error communicating with MapOutputTracker", e)
@@ -248,12 +247,12 @@ private[spark] class MapOutputTrackerMaster(settings: SparkEnv.Settings)
         case Some(bytes) =>
           return bytes
         case None =>
-          statuses = mapStatuses(shuffleId)
+          statuses = mapStatuses.getOrElse(shuffleId, Array[MapStatus]())
           epochGotten = epoch
       }
     }
     // If we got here, we failed to find the serialized locations in the cache, so we pulled
-    // out a snapshot of the locations as "locs"; let's serialize and return that
+    // out a snapshot of the locations as "statuses"; let's serialize and return that
     val bytes = MapOutputTracker.serializeMapStatuses(statuses)
     logInfo("Size of output statuses for shuffle %d is %d bytes".format(shuffleId, bytes.length))
     // Add them into the table only if the epoch hasn't changed while we were working
@@ -277,6 +276,10 @@ private[spark] class MapOutputTrackerMaster(settings: SparkEnv.Settings)
 
   override def updateEpoch(newEpoch: Long) {
     // This might be called on the MapOutputTrackerMaster if we're running in local mode.
+  }
+
+  def has(shuffleId: Int): Boolean = {
+    cachedSerializedStatuses.get(shuffleId).isDefined || mapStatuses.contains(shuffleId)
   }
 }
 

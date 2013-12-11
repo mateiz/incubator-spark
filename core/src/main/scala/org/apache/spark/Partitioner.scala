@@ -23,6 +23,9 @@ import scala.util.{Failure, Success => ScalaSuccess, Try}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.util.Utils
 
+import org.apache.spark.rdd.RDD
+import org.apache.spark.util.Utils
+
 /**
  * An object that defines how the elements in a key-value pair RDD are partitioned by key.
  * Maps each key to a partition ID, from 0 to `numPartitions - 1`.

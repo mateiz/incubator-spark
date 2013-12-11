@@ -64,6 +64,7 @@ class ShuffleBlockManager(blockManager: BlockManager) {
   val settings = Try(blockManager.settings).getOrElse(ConfigUtils.settings) // relevant for testing only.
   // Turning off shuffle file consolidation causes all shuffle Blocks to get their own file.
   // TODO: Remove this once the shuffle file consolidation feature is stable.
+
   val consolidateShuffleFiles = settings.consolidateShuffleFiles
   private val bufferSize = settings.shuffleBufferSize * 1024
 

@@ -20,10 +20,10 @@ package org.apache.spark.util
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-import akka.actor.{ActorSystem, ExtendedActorSystem}
+import akka.actor.{ActorSystem, ExtendedActorSystem, IndestructibleActorSystem}
 import akka.remote.RemoteActorRefProvider
-
 import com.typesafe.config.{Config, ConfigFactory}
+
 import org.apache.spark.SparkEnv
 
 /**
@@ -37,9 +37,12 @@ private[spark] object AkkaUtils {
    *
    * Note: the `name` parameter is important, as even if a client sends a message to right
    * host + port, if the system name is incorrect, Akka will drop the message.
+   *
+   * If indestructible is set to true, the Actor System will continue running in the event
+   * of a fatal exception. This is used by [[org.apache.spark.executor.Executor]].
    */
   def createActorSystem(name: String, host: String, port: Int, 
-    settings: SparkEnv.Settings): (ActorSystem, Int) = {
+    settings: SparkEnv.Settings, indestructible: Boolean = false): (ActorSystem, Int) = {
     import settings._
     val akkaConf = ConfigFactory.parseString(
       s"""
@@ -61,7 +64,12 @@ private[spark] object AkkaUtils {
       |akka.actor.default-dispatcher.throughput = $akkaBatchSize
       |akka.remote.log-remote-lifecycle-events = $lifecycleEvents
       """.stripMargin)
-    val actorSystem = ActorSystem(name, akkaConf.withFallback(conf))
+
+    val actorSystem = if (indestructible) {
+      IndestructibleActorSystem(name, akkaConf.withFallback(conf))
+    } else {
+      ActorSystem(name, akkaConf.withFallback(conf))
+    }
 
     val provider = actorSystem.asInstanceOf[ExtendedActorSystem].provider
     val boundPort = provider.getDefaultAddress.port.get
