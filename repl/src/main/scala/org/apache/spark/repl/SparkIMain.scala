@@ -83,15 +83,15 @@ import org.apache.spark.Logging
    *  @author Moez A. Abdel-Gawad
    *  @author Lex Spoon
    */
-  class SparkIMain(initialSettings: Settings, val out: JPrintWriter) extends SparkImports with Logging {
+  class SparkIMain(initialSettings: Settings, val out: JPrintWriter,
+                   val sparkSettings: SparkEnv.Settings) extends SparkImports with Logging {
     imain =>
 
       val SPARK_DEBUG_REPL: Boolean = (System.getenv("SPARK_DEBUG_REPL") == "1")
 
       /** Local directory to save .class files too */
       val outputDir = {
-        val tmp = System.getProperty("java.io.tmpdir")
-        val rootDir = System.getProperty("spark.repl.classdir", tmp)
+        val rootDir = sparkSettings.replDir
         Utils.createTempDir(rootDir)
       }
       if (SPARK_DEBUG_REPL) {
@@ -111,6 +111,7 @@ import org.apache.spark.Logging
 
         // Start the classServer and store its URI in a spark system property
     // (which will be passed to executors so that they can connect to it)
+    // This is added to config and passed to spark context when it is started.
       classServer.start()
       System.setProperty("spark.repl.class.uri", classServer.uri)
       if (SPARK_DEBUG_REPL) {
@@ -151,8 +152,9 @@ import org.apache.spark.Logging
     }
 
     /** construct an interpreter that reports to Console */
-    def this(settings: Settings) = this(settings, new NewLinePrintWriter(new ConsoleWriter, true))
-    def this() = this(new Settings())
+    def this(settings: Settings, sparkSettings: SparkEnv.Settings) =
+      this(settings, new NewLinePrintWriter(new ConsoleWriter, true), sparkSettings)
+    def this(sparkSettings: SparkEnv.Settings) = this(new Settings(), sparkSettings)
 
     lazy val repllog: Logger = new Logger {
       val out: JPrintWriter = imain.out

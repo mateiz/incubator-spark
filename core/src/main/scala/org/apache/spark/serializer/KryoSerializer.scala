@@ -34,7 +34,7 @@ import org.apache.spark.util.ConfigUtils
  * A Spark serializer that uses the [[https://code.google.com/p/kryo/ Kryo serialization library]].
  */
 class KryoSerializer extends org.apache.spark.serializer.Serializer with Logging {
-  @transient val settings = ConfigUtils.settings
+  val settings = ConfigUtils.settings
   private val bufferSize = settings.kryoSerializerBufferMb * 1024 * 1024
 
   def newKryoOutput() = new KryoOutput(bufferSize)

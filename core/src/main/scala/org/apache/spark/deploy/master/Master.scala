@@ -519,7 +519,6 @@ private[spark] object Master {
   val systemName = "sparkMaster"
   private val actorName = "Master"
   val sparkUrlRegex = "spark://([^:]+):([0-9]+)".r
-  private val settings = ConfigUtils.settings
 
   def main(argStrings: Array[String]) {
     val args = new MasterArguments(argStrings)
@@ -538,6 +537,7 @@ private[spark] object Master {
   }
 
   def startSystemAndActor(host: String, port: Int, webUiPort: Int): (ActorSystem, Int, Int) = {
+    val settings = ConfigUtils.settings
     val (actorSystem, boundPort) = AkkaUtils.createActorSystem(systemName, host, port, settings)
     val actor = actorSystem.actorOf(Props(classOf[Master], host, boundPort, webUiPort, settings),
       name = actorName)

@@ -36,7 +36,9 @@ import scala.reflect.api.{Mirror, TypeCreator, Universe => ApiUniverse}
 
 import org.apache.spark.Logging
 import org.apache.spark.SparkContext
+import org.apache.spark.SparkEnv
 import org.apache.spark.util.ConfigUtils
+
 
 /** The Scala interactive shell.  It provides a read-eval-print loop
  *  around the Interpreter class.
@@ -65,6 +67,7 @@ class SparkILoop(in0: Option[BufferedReader], protected val out: JPrintWriter,
   var in: InteractiveReader = _   // the input stream from which commands come
   var settings: Settings = _
   var intp: SparkIMain = _
+  var sparkSettings: SparkEnv.Settings = ConfigUtils.settings
 
   @deprecated("Use `intp` instead.", "2.9.0") def interpreter = intp
   @deprecated("Use `intp` instead.", "2.9.0") def interpreter_= (i: SparkIMain): Unit = intp = i
@@ -172,7 +175,7 @@ class SparkILoop(in0: Option[BufferedReader], protected val out: JPrintWriter,
     }
   }
 
-  class SparkILoopInterpreter extends SparkIMain(settings, out) {
+  class SparkILoopInterpreter extends SparkIMain(settings, out, sparkSettings) {
     outer =>
 
     override lazy val formatting = new Formatting {

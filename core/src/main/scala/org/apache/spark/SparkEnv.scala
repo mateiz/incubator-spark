@@ -305,7 +305,8 @@ object SparkEnv extends Logging {
     final val zkUrl = Try(getString("spark.deploy.zookeeper.url")).getOrElse("")
 
     final def metricsConfFile = getString("spark.metrics.conf")
-
+    final val replDir = Try(getString("spark.repl.classdir")).
+      getOrElse(System.getProperty("java.io.tmpdir"))
     final def executorUri = getString("spark.executor.uri")
     final val resultGetterThreads = Try(getInt("spark.resultGetter.threads")).getOrElse(4)
     final val schedulerReviveInterval = Try(getLong("spark.scheduler.revive.interval")).getOrElse(1000l)
