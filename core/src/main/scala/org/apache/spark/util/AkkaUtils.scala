@@ -44,7 +44,7 @@ private[spark] object AkkaUtils {
   def createActorSystem(name: String, host: String, port: Int, 
     settings: SparkEnv.Settings, indestructible: Boolean = false): (ActorSystem, Int) = {
     import settings._
-    val akkaConf = ConfigFactory.parseString(
+    val akkaConf = conf.withOnlyPath("akka").withFallback(ConfigFactory.parseString(
       s"""
       |akka.daemonic = on
       |akka.loggers = [""akka.event.slf4j.Slf4jLogger""]
@@ -63,12 +63,12 @@ private[spark] object AkkaUtils {
       |akka.remote.netty.tcp.execution-pool-size = $akkaThreads
       |akka.actor.default-dispatcher.throughput = $akkaBatchSize
       |akka.remote.log-remote-lifecycle-events = $lifecycleEvents
-      """.stripMargin)
+      """.stripMargin))
 
     val actorSystem = if (indestructible) {
-      IndestructibleActorSystem(name, akkaConf.withFallback(conf))
+      IndestructibleActorSystem(name, akkaConf)
     } else {
-      ActorSystem(name, akkaConf.withFallback(conf))
+      ActorSystem(name, akkaConf)
     }
 
     val provider = actorSystem.asInstanceOf[ExtendedActorSystem].provider
