@@ -37,7 +37,7 @@ val extraConfig = ConfigUtils.parseFromMap(Map(
 val sc = new SparkContext("local", name, extraConfig)
 {% endhighlight %}
 
-You can also use system properties for configuring Spark. You need to either pass it with a -D flag to the JVM (for example `java -Dspark.cores.max=5 MyProgram`) or call `System.setProperty` in your code *before* creating your Spark context.
+You can also use system properties for configuring Spark. You need to either pass it with a -D flag to the JVM (for example `java -Dspark.cores.max=5 MyProgram`) or call `System.setProperty` in your code *before* creating your Spark context. Now this is different than before, earlier(in older versions i.e. before 0.9.x) it was possible to configure even after spark context is created, it made sense inside the repl. However this is not possible now, the configuration either provided as config files or with setProperty has to be provided before creating a spark context. It is thus important to note *configuration settings are immutable* and are picked up at the time of creation of spark context.
 
 {% highlight scala %}
 System.setProperty("spark.cores.max", "5")
