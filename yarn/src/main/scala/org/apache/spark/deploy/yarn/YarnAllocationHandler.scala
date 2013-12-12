@@ -27,6 +27,7 @@ import scala.collection.JavaConversions._
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 
 import org.apache.spark.Logging
+import org.apache.spark.SparkEnv
 import org.apache.spark.scheduler.SplitInfo
 import org.apache.spark.scheduler.cluster.{ClusterScheduler, CoarseGrainedSchedulerBackend}
 import org.apache.spark.util.Utils

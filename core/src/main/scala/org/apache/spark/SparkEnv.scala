@@ -20,12 +20,14 @@ package org.apache.spark
 import java.lang.System
 
 import scala.collection.mutable
+import scala.reflect.ClassTag
+import scala.reflect.ClassTag.{ Int => CtagInt, Long => CtagLong,
+  Double => CtagDouble, Boolean => CtagBool}
 import scala.util.Try
 
 import akka.actor._
 import com.google.common.collect.MapMaker
 import com.typesafe.config.{Config, ConfigFactory}
-
 import org.apache.spark.api.python.PythonWorkerFactory
 import org.apache.spark.broadcast.BroadcastManager
 import org.apache.spark.deploy.worker.ui.WorkerWebUI
@@ -136,12 +138,14 @@ object SparkEnv extends Logging {
     val httpFileServer = new HttpFileServer()
     httpFileServer.initialize()
     val conf = ConfigFactory.
-      parseString(s"""spark.fileserver.uri = "${httpFileServer.serverUri}" """).withFallback(config)
+      parseString( s"""spark.fileserver.uri = "${httpFileServer.serverUri}" """)
+      .withFallback(config)
 
     var settings: Settings = new Settings(conf)
-    val hostName = if(isDriver) settings.driverHost else Utils.localHostName()
-    val port = if(isDriver) Try(settings.driverPort).getOrElse(0) else 0
-    val (actorSystem :ActorSystem, boundPort: Int) = AkkaUtils.createActorSystem("spark",hostName,port,settings)
+    val hostName = if (isDriver) settings.driverHost else Utils.localHostName()
+    val port = if (isDriver) Try(settings.driverPort).getOrElse(0) else 0
+    val (actorSystem: ActorSystem, boundPort: Int) =
+      AkkaUtils.createActorSystem("spark", hostName, port, settings)
 
     val driverConfig = if (isDriver) {
       Map("spark.driver.host" -> settings.driverHost, "spark.driver.port" -> boundPort)
@@ -251,186 +255,234 @@ object SparkEnv extends Logging {
    * Note: Properties that do not have a default alternative can not be kept as val, use def
    * instead.
    */
-  private[spark] class Settings(val conf: Config) {
+  private[spark] class Settings(config: Config) {
 
-    import conf._
+    import config._
+    import scala.reflect.classTag
 
+    private var mutableConf: Config = ConfigFactory.empty
+
+    /**
+     * This method will let one modify only the optional configuration even after spark context is created.
+     * TODO: Decide whether this should be exposed to user or not.
+     * @param propertyName
+     * @param defaultValue
+     * @tparam T
+     * @return
+     */
+    private def configure[T: ClassTag](propertyName: String, defaultValue: T): T = {
+      val result = classTag[T] match {
+        case CtagInt => Try(getInt(propertyName).asInstanceOf[T]).getOrElse(defaultValue)
+        case CtagDouble => Try(getDouble(propertyName).asInstanceOf[T]).getOrElse(defaultValue)
+        case CtagBool => Try(getBoolean(propertyName).asInstanceOf[T]).getOrElse(defaultValue)
+        case CtagLong => Try(getLong(propertyName).asInstanceOf[T]).getOrElse(defaultValue)
+        case _ => //Default is treated as String.
+          Try(getString(propertyName).asInstanceOf[T]).getOrElse(defaultValue)
+      }
+
+      val con = classTag[T] match {
+        case CtagInt | CtagLong | CtagDouble | CtagBool =>
+          ConfigFactory.parseString(s"$propertyName=$result")
+        case _ =>
+          ConfigFactory.parseString( s"""$propertyName="$result" """)
+      }
+
+      mutableConf = con.withFallback(mutableConf)
+      result
+    }
+    @throws[Exception]
+    private def configure[T: ClassTag](propertyName: String): T = {
+      val result = classTag[T] match {
+        case CtagInt => getInt(propertyName).asInstanceOf[T]
+        case CtagDouble => getDouble(propertyName).asInstanceOf[T]
+        case CtagBool => getBoolean(propertyName).asInstanceOf[T]
+        case CtagLong => getLong(propertyName).asInstanceOf[T]
+        case _ => //Default is treated as String.
+          getString(propertyName).asInstanceOf[T]
+      }
+      val con = classTag[T] match {
+        case CtagInt | CtagLong | CtagDouble | CtagBool =>
+          ConfigFactory.parseString(s"$propertyName=$result")
+        case _ =>
+          ConfigFactory.parseString( s"""$propertyName="$result" """)
+      }
+      mutableConf = con.withFallback(mutableConf)
+      result
+    }
+    /*All of the configurations are set as final so that they can not be overriden.*/
     final def sparkHome = Try(getString("spark.home")).toOption
       .orElse(Option(System.getenv("SPARK_HOME")))
-    final val sparkLocalDir = Try(getString("spark.local.dir")).
-      getOrElse(System.getProperty("java.io.tmpdir"))
-    final val memoryFraction = Try(getDouble("spark.storage.memoryFraction")).getOrElse(0.66)
-    final val logConf = Try(getBoolean("spark.log.confAsInfo")).getOrElse(false)
-    final val sparkUser = Try(getString("user.name")).
-      getOrElse(Option(System.getenv("SPARK_USER")).getOrElse(SparkContext.SPARK_UNKNOWN_USER))
 
-    final val closureSerializer = Try(getString("spark.closure.serializer")).
-      getOrElse("org.apache.spark.serializer.JavaSerializer")
+    final val sparkLocalDir = configure("spark.local.dir", System.getProperty("java.io.tmpdir"))
+    final val memoryFraction = configure("spark.storage.memoryFraction", 0.66)
+    final val logConf = configure("spark.log.confAsInfo", true)
+    final val sparkUser = Try(getString("user.name")).getOrElse(  // we don't set this augmented conf.
+      Option(System.getenv("SPARK_USER")).getOrElse(SparkContext.SPARK_UNKNOWN_USER))
 
-    final val serializer = Try(getString("spark.serializer")).
-      getOrElse("org.apache.spark.serializer.JavaSerializer")
+    final val closureSerializer = configure("spark.closure.serializer",
+      "org.apache.spark.serializer.JavaSerializer")
 
-    final val shuffleFetcher = Try(getString("spark.shuffle.fetcher"))
-      .getOrElse("org.apache.spark.BlockStoreShuffleFetcher")
-    final def useCompressedOops = getBoolean("spark.test.useCompressedOops")
-    final val retainedStages = Try(getInt("spark.ui.retained_stages")).getOrElse(1000)
-    final val sparkUiPort = Try(getInt("spark.ui.port")).getOrElse(SparkUI.DEFAULT_PORT)
-    final val consolidateShuffleFiles = Try(getBoolean("spark.shuffle.consolidateFiles")).
-      getOrElse(true)
-    final val shuffleBufferSize = Try(getInt("spark.shuffle.file.buffer.kb")).getOrElse(100)
-    final val subDirsPerLocalDir = Try(getInt("spark.diskStore.subDirectories")).getOrElse(64)
-    final val shuffleSyncWrites = Try(getBoolean("spark.shuffle.sync")).getOrElse(false)
-    final val shuffleCopierThreads = Try(getInt("spark.shuffle.copier.threads")).getOrElse(6)
+    final val serializer = configure("spark.serializer",
+      "org.apache.spark.serializer.JavaSerializer")
+
+    final val shuffleFetcher = configure("spark.shuffle.fetcher",
+      "org.apache.spark.BlockStoreShuffleFetcher")
+
+    final def useCompressedOops = configure[Boolean]("spark.test.useCompressedOops")
+
+    final val retainedStages = configure("spark.ui.retained_stages", 1000)
+    final val sparkUiPort = configure("spark.ui.port", SparkUI.DEFAULT_PORT)
+    final val consolidateShuffleFiles = configure("spark.shuffle.consolidateFiles", true)
+    final val shuffleBufferSize = configure("spark.shuffle.file.buffer.kb", 100)
+    final val subDirsPerLocalDir = configure("spark.diskStore.subDirectories", 64)
+    final val shuffleSyncWrites = configure("spark.shuffle.sync", false)
+    final val shuffleCopierThreads = configure("spark.shuffle.copier.threads", 6)
 
     /** Only set at driver, the defaults are replaced once ActorSystem is initialized
-      * and reflected in augmented settings created, which is used everywhere.*/
-    final val driverHost = Try(getString("spark.driver.host")).getOrElse(Utils.localHostName())
-    final def driverPort = getInt("spark.driver.port")
+      * and reflected in augmented settings created, which is used everywhere. */
+    final val driverHost = configure("spark.driver.host", Utils.localHostName())
 
-    final val cleanerTtl = Try(getInt("spark.cleaner.ttl")).getOrElse(3600)
+    final def driverPort = configure[Int]("spark.driver.port")
+
+    final val cleanerTtl = configure("spark.cleaner.ttl", 3600)
 
     /** Maps to io.file.buffer.size */
-    final val bufferSize = Try(getInt("spark.buffer.size")).getOrElse(65536)
+    final val bufferSize = configure("spark.buffer.size", 65536)
 
-    final def replClassUri = getString("spark.repl.class.uri")
+    final def replClassUri = configure[String]("spark.repl.class.uri")
 
-    final val executorMem = Try(getString("spark.executor.memory")).toOption
-      .orElse(Option(System.getenv("SPARK_MEM")))
+    final val executorMem = configure("spark.executor.memory", Option(System.getenv("SPARK_MEM"))
       .map(Utils.memoryStringToMb)
-      .getOrElse(512)
+      .getOrElse(512))
 
-    final def defaultParallelism = getInt("spark.default.parallelism")
+    final def defaultParallelism = configure[Int]("spark.default.parallelism")
 
-    final val zkWorkingDir = Try(getString("spark.deploy.zookeeper.dir")).getOrElse("/spark")
-    final val zkUrl = Try(getString("spark.deploy.zookeeper.url")).getOrElse("")
+    final val zkWorkingDir = configure("spark.deploy.zookeeper.dir", "/spark")
+    final val zkUrl = configure("spark.deploy.zookeeper.url", "")
 
-    final def metricsConfFile = getString("spark.metrics.conf")
-    final val replDir = Try(getString("spark.repl.classdir")).
-      getOrElse(System.getProperty("java.io.tmpdir"))
-    final def executorUri = getString("spark.executor.uri")
-    final val resultGetterThreads = Try(getInt("spark.resultGetter.threads")).getOrElse(4)
-    final val schedulerReviveInterval = Try(getLong("spark.scheduler.revive.interval")).getOrElse(1000l)
+    final def metricsConfFile = configure[String]("spark.metrics.conf")
+
+    final val replDir = configure("spark.repl.classdir", System.getProperty("java.io.tmpdir"))
+
+    final def executorUri = configure[String]("spark.executor.uri")
+
+    final val resultGetterThreads = configure("spark.resultGetter.threads", 4)
+    final val schedulerReviveInterval = configure("spark.scheduler.revive.interval", 1000l)
 
     // Kryo Related
-    final val kryoReferenceTracking = Try(getBoolean("spark.kryo.referenceTracking")).getOrElse(true)
-    final val kryoSerializerBufferMb = Try(getInt("spark.kryoserializer.buffer.mb")).getOrElse(2)
-    final def kryoRegistrator =  Try(getString("spark.kryo.registrator")).toOption
-    // Broadcast Related
-    final val compressBroadcast = Try(getBoolean("spark.broadcast.compress")).getOrElse(true)
-    final val httpBroadcastURI = Try(getString("spark.httpBroadcast.uri")).getOrElse("")
-    final val broadCastFactory = Try(getString("spark.broadcast.factory")).
-      getOrElse("org.apache.spark.broadcast.HttpBroadcastFactory")
+    final val kryoReferenceTracking = configure("spark.kryo.referenceTracking", true)
+    final val kryoSerializerBufferMb = configure("spark.kryoserializer.buffer.mb", 2)
 
-    final val blockSize = Try(getInt("spark.broadcast.blockSize")).getOrElse(4096)
+    final def kryoRegistrator = Try(configure[String]("spark.kryo.registrator")).toOption
+
+    // Broadcast Related
+    final val compressBroadcast = configure("spark.broadcast.compress", true)
+    final def httpBroadcastURI = configure[String]("spark.httpBroadcast.uri")
+    final val broadCastFactory = configure("spark.broadcast.factory",
+      "org.apache.spark.broadcast.HttpBroadcastFactory")
+
+    final val blockSize = configure("spark.broadcast.blockSize", 4096)
 
     // Akka related
-    final val akkaThreads = Try(getInt("spark.akka.threads")).getOrElse(4)
-    final val akkaBatchSize = Try(getInt("spark.akka.batchSize")).getOrElse(15)
-    final val akkaTimeout = Try(getInt("spark.akka.timeout")).getOrElse(60)
-    final val akkaFrameSize = Try(getInt("spark.akka.frameSize")).getOrElse(10)
-    final val lifecycleEvents = if (Try(getBoolean("spark.akka.logLifecycleEvents"))
-      .getOrElse(false)) "on" else "off"
-    final val akkaHeartBeatPauses = Try(getInt("spark.akka.heartbeat.pauses")).getOrElse(600)
-    final val akkaFailureDetector = Try(getDouble("spark.akka.failure-detector.threshold")).
-      getOrElse(300.0)
-    final val akkaHeartBeatInterval = Try(getInt("spark.akka.heartbeat.interval")).getOrElse(1000)
-    final val askTimeout = Try(getInt("spark.akka.askTimeout")).getOrElse(10)
-    
+    final val akkaThreads = configure("spark.akka.threads", 4)
+    final val akkaBatchSize = configure("spark.akka.batchSize", 15)
+    final val akkaTimeout = configure("spark.akka.timeout", 100)
+    final val akkaFrameSize = configure("spark.akka.frameSize", 10)
+    final val lifecycleEvents = if (configure("spark.akka.logLifecycleEvents", false)) "on" else "off"
+    final val akkaHeartBeatPauses = configure("spark.akka.heartbeat.pauses", 600)
+    final val akkaFailureDetector = configure("spark.akka.failure-detector.threshold", 300.0)
+    final val akkaHeartBeatInterval = configure("spark.akka.heartbeat.interval", 1000)
+    final val askTimeout = configure("spark.akka.askTimeout", 10)
+
     //Scheduling related
-    final val schedulingMode = Try(getString("spark.scheduler.mode")).getOrElse("FIFO")
-    final val mesosIsCoarse = Try(getBoolean("spark.mesos.coarse")).getOrElse(false)
-    final val simrMaxCores = Try(getInt("spark.simr.executor.cores")).getOrElse(1)
-    final val maxCores = Try(getInt("spark.cores.max")).getOrElse(Int.MaxValue)
-    final val mesosExtraCoresPerSlave = Try(getInt("spark.mesos.extra.cores")).getOrElse(0)
-    final def schedulerAllocationFile = getString("spark.scheduler.allocation.file")
+    final val schedulingMode = configure("spark.scheduler.mode", "FIFO")
+    final val mesosIsCoarse = configure("spark.mesos.coarse", false)
+    final val simrMaxCores = configure("spark.simr.executor.cores", 1)
+    final val maxCores = configure("spark.cores.max", Int.MaxValue)
+    final val mesosExtraCoresPerSlave = configure("spark.mesos.extra.cores", 0)
+
+    final def schedulerAllocationFile = configure[String]("spark.scheduler.allocation.file")
 
     //Blockmanager related
-    final def maxMemBlockManager = Try(getLong("spark.storage.blockmanager.maxmem"))
-      .getOrElse((Runtime.getRuntime.maxMemory * memoryFraction).toLong)
-    final val useNetty = Try(getBoolean("spark.shuffle.use.netty")).getOrElse(false)
-    final val nettyPortConfig = Try(getInt("spark.shuffle.sender.port")).getOrElse(0)
-    final val maxMbInFlight = Try(getLong("spark.reducer.maxMbInFlight")). //TODO: should be maxBytes
-      getOrElse(48l)
-    final val compressShuffle = Try(getBoolean("spark.shuffle.compress")).getOrElse(true)
-    final val compressRdds = Try(getBoolean("spark.rdd.compress")).getOrElse(false)
-    final val bmTimeout = Try(getLong("spark.storage.blockManagerTimeoutIntervalMs")).
-      getOrElse(60000l)
-    final val slaveTimeout = Try(getLong("spark.storage.blockManagerSlaveTimeoutMs")).
-      getOrElse(bmTimeout * 3l)
-    final val disableTestHeartBeat = Try(getBoolean("spark.test.disableBlockManagerHeartBeat")).
-      getOrElse(false)
-    final val akkaRetries: Int = Try(getInt("spark.akka.num.retries")).getOrElse(3)
-    final val akkaRetryInterval: Int = Try(getInt("spark.akka.retry.wait")).getOrElse(3000)
+    final def maxMemBlockManager = configure("spark.storage.blockmanager.maxmem",
+      (Runtime.getRuntime.maxMemory * memoryFraction).toLong)
+
+    final val useNetty = configure("spark.shuffle.use.netty", false)
+    final val nettyPortConfig = configure("spark.shuffle.sender.port", 0)
+    final val maxMbInFlight = configure("spark.reducer.maxMbInFlight", 48l)
+    final val compressShuffle = configure("spark.shuffle.compress", true)
+    final val compressRdds = configure("spark.rdd.compress", false)
+    final val bmTimeout = configure("spark.storage.blockManagerTimeoutIntervalMs", 60000l)
+    final val slaveTimeout = configure("spark.storage.blockManagerSlaveTimeoutMs", bmTimeout * 3l)
+    final val disableTestHeartBeat = configure("spark.test.disableBlockManagerHeartBeat", false)
+    final val akkaRetries = configure("spark.akka.num.retries", 3)
+    final val akkaRetryInterval = configure("spark.akka.retry.wait", 3000)
 
     //Task related
-    final val localityWait = Try(getLong("spark.locality.wait")).getOrElse(3000l)
-    final val cpuPerTask = Try(getInt("spark.task.cpus")).getOrElse(1)
-    final val taskMaxFailures = Try(getInt("spark.task.maxFailures")).getOrElse(4)
-    final val speculationMultiplier = Try(getDouble("spark.speculation.multiplier")).getOrElse(1.5)
+    final val localityWait = configure("spark.locality.wait", 3000l)
+    final val cpuPerTask = configure("spark.task.cpus", 1)
+    final val taskMaxFailures = configure("spark.task.maxFailures", 4)
+    final val speculationMultiplier = configure("spark.speculation.multiplier", 1.5)
 
-    final val speculationQuantile = Try(getDouble("spark.speculation.quantile")).getOrElse(0.75)
-    final val speculationInterval = Try(getLong("spark.speculation.interval")).getOrElse(100l)
-    final val speculation = Try(getBoolean("spark.speculation")).getOrElse(false)
+    final val speculationQuantile = configure("spark.speculation.quantile", 0.75)
+    final val speculationInterval = configure("spark.speculation.interval", 100l)
+    final val speculation = configure("spark.speculation", false)
 
-    final val starvationTimeout = Try(getLong("spark.starvation.timeout")).getOrElse(15000l)
+    final val starvationTimeout = configure("spark.starvation.timeout", 15000l)
 
-    final val localityWaitProcess = Try(getLong("spark.locality.wait.process")).
-      getOrElse(localityWait)
-    final val localityWaitNode = Try(getLong("spark.locality.wait.node")).getOrElse(localityWait)
-    final val localityWaitRack = Try(getLong("spark.locality.wait.rack")).getOrElse(localityWait)
-    final val exceptionPrintInterval = Try(getLong("spark.logging.exceptionPrintInterval")).
-      getOrElse(10000l)
-    val shuffleNettyConnectTimeout = Try(getInt("spark.shuffle.netty.connect.timeout")).
-      getOrElse(60000)
-    
+    final val localityWaitProcess = configure("spark.locality.wait.process", localityWait)
+    final val localityWaitNode = configure("spark.locality.wait.node", localityWait)
+    final val localityWaitRack = configure("spark.locality.wait.rack", localityWait)
+    final val exceptionPrintInterval = configure("spark.logging.exceptionPrintInterval", 10000l)
+    val shuffleNettyConnectTimeout = configure("spark.shuffle.netty.connect.timeout", 60000)
+
     //Compression related
-    final val compressionCodec = Try(getString("spark.io.compression.codec")).
-      getOrElse(classOf[LZFCompressionCodec].getName)
-    final val snappyCompressionBlockSize = Try(getInt("spark.io.compression.snappy.block.size")).
-      getOrElse(32768)
+    final val compressionCodec = configure("spark.io.compression.codec",
+      classOf[LZFCompressionCodec].getName)
+    final val snappyCompressionBlockSize = configure("spark.io.compression.snappy.block.size", 32768)
     //Connection Manager related
-    final val handlerMinThreads = Try(getInt("spark.core.connection.handler.threads.min")).
-      getOrElse(20)
-    final val handlerMaxThreads = Try(getInt("spark.core.connection.handler.threads.max")).
-      getOrElse(60)
-    final val handlerKeepalive = Try(getInt("spark.core.connection.handler.threads.keepalive")).
-      getOrElse(60)
-    final val ioMinThreads = Try(getInt("spark.core.connection.handler.io.min")).getOrElse(4)
-    final val ioMaxThreads = Try(getInt("spark.core.connection.handler.io.max")).getOrElse(32)
-    final val ioKeepalive = Try(getInt("spark.core.connection.handler.io.keepalive")).getOrElse(60)
-    final val connectMinThreads = Try(getInt("spark.core.connection.connect.threads.min")).
-      getOrElse(1)
-    final val connectMaxThreads = Try(getInt("spark.core.connection.connect.threads.max")).
-      getOrElse(8)
-    final val connectKeepalive = Try(getInt("spark.core.connection.connect.threads.keepalive")).
-      getOrElse(60)
+    final val handlerMinThreads = configure("spark.core.connection.handler.threads.min", 20)
+    final val handlerMaxThreads = configure("spark.core.connection.handler.threads.max", 60)
+    final val handlerKeepalive = configure("spark.core.connection.handler.threads.keepalive", 60)
+    final val ioMinThreads = configure("spark.core.connection.handler.io.min", 4)
+    final val ioMaxThreads = configure("spark.core.connection.handler.io.max", 32)
+    final val ioKeepalive = configure("spark.core.connection.handler.io.keepalive", 60)
+    final val connectMinThreads = configure("spark.core.connection.connect.threads.min", 1)
+    final val connectMaxThreads = configure("spark.core.connection.connect.threads.max", 8)
+    final val connectKeepalive = configure("spark.core.connection.connect.threads.keepalive", 60)
 
     //deploy related
-    final val workerTimeout = Try(getLong("spark.worker.timeout")).getOrElse(60l)
-    final val retainedApplication = Try(getInt("spark.deploy.retainedApplications")).getOrElse(200)
-    final val workerPersistence = Try(getInt("spark.dead.worker.persistence")).getOrElse(15)
-    final val recoveryDir = Try(getString("spark.deploy.recoveryDirectory")).getOrElse("")
-    final val recoveryMode = Try(getString("spark.deploy.recoveryMode")).getOrElse("NONE")
-    final val spreadOutApps = Try(getBoolean("spark.deploy.spreadOut")).getOrElse(true)
-    final def masterUiPort = getInt("master.ui.port")
-    final val workerUiPort = Try(getInt("worker.ui.port")).getOrElse(WorkerWebUI.DEFAULT_PORT)
+    final val workerTimeout = configure("spark.worker.timeout", 60l)
+    final val retainedApplication = configure("spark.deploy.retainedApplications", 200)
+    final val workerPersistence = configure("spark.dead.worker.persistence", 15)
+    final val recoveryDir = configure("spark.deploy.recoveryDirectory", "")
+    final val recoveryMode = configure("spark.deploy.recoveryMode", "NONE")
+    final val spreadOutApps = configure("spark.deploy.spreadOut", true)
+
+    final def masterUiPort = configure[Int]("master.ui.port")
+
+    final val workerUiPort = configure("worker.ui.port", WorkerWebUI.DEFAULT_PORT)
 
     //Streaming
-    final val blockInterval = Try(getLong("spark.streaming.blockInterval")).getOrElse(200l)
-    final val concurrentJobs = Try(getInt("spark.streaming.concurrentJobs")).getOrElse(1)
-    final val clockClass = Try(getString("spark.streaming.clock")).
-      getOrElse("org.apache.spark.streaming.util.SystemClock")
-    final val jumpTime = Try(getLong("spark.streaming.manualClock.jump")).getOrElse(0l)
+    final val blockInterval = configure("spark.streaming.blockInterval", 200l)
+    final val concurrentJobs = configure("spark.streaming.concurrentJobs", 1)
+    final val clockClass = configure("spark.streaming.clock",
+      "org.apache.spark.streaming.util.SystemClock")
+    final val jumpTime = configure("spark.streaming.manualClock.jump", 0l)
 
     //yarn
-    final val yarnReplication = Try(getInt("spark.yarn.submit.file.replication")).getOrElse(3).toShort
-    final val yarnUserClasspathFirst = Try(getBoolean("spark.yarn.user.classpath.first")).
-      getOrElse(false)
-    final def yarnMaxNumWorkerFailures = getInt("spark.yarn.max.worker.failures")
-    final val yarnWaitTries = Try(getInt("spark.yarn.applicationMaster.waitTries")).getOrElse(10)
-    final val yarnSchedulerInterval = Try(getLong("spark.yarn.scheduler.heartbeat.interval-ms")).
-      getOrElse(5000l)
-    val yarnPreserveFiles = Try(getBoolean("spark.yarn.preserve.staging.files")).getOrElse(false)
+    final val yarnReplication = configure("spark.yarn.submit.file.replication", 3).toShort
+    final val yarnUserClasspathFirst = configure("spark.yarn.user.classpath.first", false)
 
+    final def yarnMaxNumWorkerFailures = configure[Int]("spark.yarn.max.worker.failures")
+
+    final val yarnWaitTries = configure("spark.yarn.applicationMaster.waitTries", 10)
+    final val yarnSchedulerInterval = configure("spark.yarn.scheduler.heartbeat.interval-ms",
+      5000l)
+    final val yarnPreserveFiles = configure("spark.yarn.preserve.staging.files", false)
+
+    override def toString = mutableConf.root().render()
+
+    def getConf = mutableConf.withFallback(config)
   }
 }
