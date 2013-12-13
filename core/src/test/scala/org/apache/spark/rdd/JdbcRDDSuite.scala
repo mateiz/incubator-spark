@@ -17,11 +17,10 @@
 
 package org.apache.spark
 
-import org.scalatest.{ BeforeAndAfter, FunSuite }
-import org.apache.spark.SparkContext._
-import org.apache.spark.rdd.JdbcRDD
 import java.sql._
-import org.apache.spark.util.CoreTestConfig._
+
+import org.apache.spark.rdd.JdbcRDD
+import org.scalatest.{BeforeAndAfter, FunSuite}
 
 class JdbcRDDSuite extends FunSuite with BeforeAndAfter with LocalSparkContext {
 
@@ -51,7 +50,7 @@ class JdbcRDDSuite extends FunSuite with BeforeAndAfter with LocalSparkContext {
   }
 
   test("basic functionality") {
-    sc = new SparkContext("local", "test", config)
+    sc = new SparkContext("local", "test")
     val rdd = new JdbcRDD(
       sc,
       () => { DriverManager.getConnection("jdbc:derby:target/JdbcRDDSuiteDb") },

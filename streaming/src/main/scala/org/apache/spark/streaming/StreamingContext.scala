@@ -17,37 +17,32 @@
 
 package org.apache.spark.streaming
 
-import akka.actor.Props
-import akka.actor.SupervisorStrategy
-import akka.zeromq.Subscribe
+import java.io.InputStream
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 
-import org.apache.spark.streaming.dstream._
+import scala.collection.Map
+import scala.collection.mutable.Queue
+import scala.reflect.ClassTag
+
+import akka.actor.{Props, SupervisorStrategy}
+import akka.util.ByteString
+import akka.zeromq.Subscribe
+import com.typesafe.config.{Config, ConfigFactory}
+import twitter4j.Status
+import twitter4j.auth.Authorization
+
+import org.apache.hadoop.fs.Path
+import org.apache.hadoop.io.{LongWritable, Text}
+import org.apache.hadoop.mapreduce.{InputFormat => NewInputFormat}
+import org.apache.hadoop.mapreduce.lib.input.TextInputFormat
 
 import org.apache.spark._
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
-import org.apache.spark.util.ConfigUtils._
+import org.apache.spark.streaming.dstream._
 import org.apache.spark.streaming.receivers._
-
-import scala.collection.mutable.Queue
-import scala.collection.Map
-import scala.reflect.ClassTag
-
-import java.io.InputStream
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.UUID
-
-import org.apache.hadoop.io.LongWritable
-import org.apache.hadoop.io.Text
-import org.apache.hadoop.mapreduce.{InputFormat => NewInputFormat}
-import org.apache.hadoop.mapreduce.lib.input.TextInputFormat
-import org.apache.hadoop.fs.Path
-import twitter4j.Status
-import twitter4j.auth.Authorization
-
-import akka.util.ByteString
-import com.typesafe.config.{ConfigFactory, Config}
-
+import org.apache.spark.util.ConfigUtils._
 
 /**
  * A StreamingContext is the main entry point for Spark Streaming functionality. Besides the basic

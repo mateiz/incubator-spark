@@ -18,17 +18,13 @@
 package org.apache.spark.streaming
 
 import java.io._
-import java.util.concurrent.Executors
-import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.{Executors, RejectedExecutionException}
 
-import org.apache.hadoop.fs.Path
 import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.Path
 
 import org.apache.spark.Logging
 import org.apache.spark.io.CompressionCodec
-import org.apache.spark.util.MetadataCleaner
-import com.typesafe.config.Config
-
 
 private[streaming]
 class Checkpoint(@transient ssc: StreamingContext, val checkpointTime: Time)

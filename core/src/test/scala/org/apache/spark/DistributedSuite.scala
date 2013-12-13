@@ -27,7 +27,6 @@ import org.scalatest.time.{Span, Millis}
 import SparkContext._
 import org.apache.spark.storage.{BlockManagerWorker, GetBlock, RDDBlockId, StorageLevel}
 import com.typesafe.config.ConfigFactory
-import org.apache.spark.util.CoreTestConfig._
 import org.apache.spark.storage.RDDBlockId
 import org.apache.spark.storage.GetBlock
 
@@ -40,11 +39,6 @@ class DistributedSuite extends FunSuite with ShouldMatchers with BeforeAndAfter
   with LocalSparkContext {
 
   val clusterUrl = "local-cluster[2,1,512]"
-
-  after {
-    System.clearProperty("spark.reducer.maxMbInFlight")
-    System.clearProperty("spark.storage.memoryFraction")
-  }
 
   test("task throws not serializable exception") {
     // Ensures that executors do not crash when an exn is not serializable. If executors crash,
@@ -200,7 +194,7 @@ class DistributedSuite extends FunSuite with ShouldMatchers with BeforeAndAfter
 
   test("compute without caching when no partitions fit in memory") {
     sc = new SparkContext(clusterUrl, "test", ConfigFactory.
-      parseString("spark.storage.memoryFraction = 0.0001").withFallback(config))
+      parseString("spark.storage.memoryFraction = 0.0001"))
     // data will be 4 million * 4 bytes = 16 MB in size, but our memoryFraction set the cache
     // to only 50 KB (0.0001 of 512 MB), so no partitions should fit in memory
     val data = sc.parallelize(1 to 4000000, 2).persist(StorageLevel.MEMORY_ONLY_SER)
@@ -211,7 +205,7 @@ class DistributedSuite extends FunSuite with ShouldMatchers with BeforeAndAfter
 
   test("compute when only some partitions fit in memory") {
     sc = new SparkContext(clusterUrl, "test", ConfigFactory.
-      parseString("spark.storage.memoryFraction = 0.01").withFallback(config))
+      parseString("spark.storage.memoryFraction = 0.01"))
     // data will be 4 million * 4 bytes = 16 MB in size, but our memoryFraction set the cache
     // to only 5 MB (0.01 of 512 MB), so not all of it will fit in memory; we use 20 partitions
     // to make sure that *some* of them do fit though
@@ -223,7 +217,8 @@ class DistributedSuite extends FunSuite with ShouldMatchers with BeforeAndAfter
 
   test("passing environment variables to cluster") {
     import org.apache.spark.util.ConfigUtils._
-    sc = new SparkContext(clusterUrl, "test", configFromEnvironmentMap(Map("TEST_VAR" -> "TEST_VALUE")))
+    sc = new SparkContext(clusterUrl, "test",
+      configFromEnvironmentMap(Map("TEST_VAR" -> "TEST_VALUE")))
     val values = sc.parallelize(1 to 2, 2).map(x => System.getenv("TEST_VAR")).collect()
     assert(values.toSeq === Seq("TEST_VALUE", "TEST_VALUE"))
   }

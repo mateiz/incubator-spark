@@ -17,15 +17,15 @@
 
 package org.apache.spark
 
-import org.scalatest.FunSuite
-
 import akka.actor._
+import com.typesafe.config.ConfigFactory
 import org.apache.spark.scheduler.MapStatus
 import org.apache.spark.storage.BlockManagerId
-import org.apache.spark.util.{CoreTestConfig, AkkaUtils}
+import org.apache.spark.util.AkkaUtils
+import org.scalatest.FunSuite
 
 class MapOutputTrackerSuite extends FunSuite with LocalSparkContext {
-  import CoreTestConfig.config
+  val config = ConfigFactory.empty()
   test("compressSize") {
     assert(MapOutputTracker.compressSize(0L) === 0)
     assert(MapOutputTracker.compressSize(1L) === 1)

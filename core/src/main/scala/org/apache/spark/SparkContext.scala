@@ -114,17 +114,18 @@ class SparkContext(
   val mergedConfig = loadConfig() ++ config
 
   val isLocal = (master == "local" || master.startsWith("local["))
-
+  val hostName = Try(mergedConfig.getString("spark.driver.host")).getOrElse(Utils.localHostName())
   // Create the Spark execution environment (cache, map output tracker, etc)
   private[spark] val env = SparkEnv.createFromConfig(
     "<driver>",
     mergedConfig,
+    hostName,
     isDriver = true,
     isLocal)
   SparkEnv.set(env)
 
   /**
-   * INTERNAL API
+   * TODO: Decide whether to expose this to user.
    */
   private[spark] def settings = env.settings
 

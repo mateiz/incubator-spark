@@ -131,6 +131,7 @@ object SparkEnv extends Logging {
   private[spark] def createFromConfig(
       executorId: String,
       config: Config,
+      hostName: String,
       isDriver: Boolean,
       isLocal: Boolean): SparkEnv = {
     import org.apache.spark.util.ConfigUtils._
@@ -142,10 +143,10 @@ object SparkEnv extends Logging {
       .withFallback(config)
 
     var settings: Settings = new Settings(conf)
-    val hostName = if (isDriver) settings.driverHost else Utils.localHostName()
+    val hostName2 = if (isDriver) settings.driverHost else hostName
     val port = if (isDriver) Try(settings.driverPort).getOrElse(0) else 0
     val (actorSystem: ActorSystem, boundPort: Int) =
-      AkkaUtils.createActorSystem("spark", hostName, port, settings)
+      AkkaUtils.createActorSystem("spark", hostName2, port, settings)
 
     val driverConfig = if (isDriver) {
       Map("spark.driver.host" -> settings.driverHost, "spark.driver.port" -> boundPort)
@@ -319,7 +320,7 @@ object SparkEnv extends Logging {
     final val sparkLocalDir = configure("spark.local.dir", System.getProperty("java.io.tmpdir"))
     final val memoryFraction = configure("spark.storage.memoryFraction", 0.66)
     final val logConf = configure("spark.log.confAsInfo", false)
-    final val sparkUser = Try(internalConfig.getString("user.name")).getOrElse(  // we don't set this augmented conf.
+    final val sparkUser = Try(internalConfig.getString("user.name")).getOrElse(
       Option(System.getenv("SPARK_USER")).getOrElse(SparkContext.SPARK_UNKNOWN_USER))
 
     final val closureSerializer = configure("spark.closure.serializer",
@@ -437,7 +438,7 @@ object SparkEnv extends Logging {
     final val localityWaitNode = configure("spark.locality.wait.node", localityWait)
     final val localityWaitRack = configure("spark.locality.wait.rack", localityWait)
     final val exceptionPrintInterval = configure("spark.logging.exceptionPrintInterval", 10000l)
-    val shuffleNettyConnectTimeout = configure("spark.shuffle.netty.connect.timeout", 60000)
+    final val shuffleNettyConnectTimeout = configure("spark.shuffle.netty.connect.timeout", 60000)
 
     //Compression related
     final val compressionCodec = configure("spark.io.compression.codec",

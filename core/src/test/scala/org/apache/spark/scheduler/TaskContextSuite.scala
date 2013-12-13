@@ -17,20 +17,15 @@
 
 package org.apache.spark.scheduler
 
-import org.scalatest.FunSuite
-import org.scalatest.BeforeAndAfter
-import org.apache.spark.TaskContext
+import org.apache.spark.{LocalSparkContext, Partition, SparkContext, TaskContext}
 import org.apache.spark.rdd.RDD
-import org.apache.spark.SparkContext
-import org.apache.spark.Partition
-import org.apache.spark.LocalSparkContext
-import org.apache.spark.util.CoreTestConfig._
+import org.scalatest.{BeforeAndAfter, FunSuite}
 
 class TaskContextSuite extends FunSuite with BeforeAndAfter with LocalSparkContext {
 
   test("Calls executeOnCompleteCallbacks after failure") {
     var completed = false
-    sc = new SparkContext("local", "test", config)
+    sc = new SparkContext("local", "test")
     val rdd = new RDD[String](sc, List()) {
       override def getPartitions = Array[Partition](StubPartition(0))
       override def compute(split: Partition, context: TaskContext) = {

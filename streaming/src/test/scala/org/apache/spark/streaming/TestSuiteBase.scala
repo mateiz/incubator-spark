@@ -17,19 +17,16 @@
 
 package org.apache.spark.streaming
 
-import org.apache.spark.streaming.dstream.{InputDStream, ForEachDStream}
-import org.apache.spark.streaming.util.{StreamingTestConfig, ManualClock}
+import java.io.{IOException, ObjectInputStream}
 
-import scala.collection.mutable.ArrayBuffer
-import scala.collection.mutable.SynchronizedBuffer
+import scala.collection.mutable.{ArrayBuffer, SynchronizedBuffer}
 import scala.reflect.ClassTag
-
-import java.io.{ObjectInputStream, IOException}
-
-import org.scalatest.{BeforeAndAfter, FunSuite}
 
 import org.apache.spark.Logging
 import org.apache.spark.rdd.RDD
+import org.apache.spark.streaming.dstream.{ForEachDStream, InputDStream}
+import org.apache.spark.streaming.util.ManualClock
+import org.scalatest.{BeforeAndAfter, FunSuite}
 import com.typesafe.config.ConfigFactory
 
 /**
@@ -113,7 +110,7 @@ trait TestSuiteBase extends FunSuite with BeforeAndAfter with Logging {
   // Name of the framework for Spark context
   def framework = "TestSuiteBase"
 
-  def configOverrides = StreamingTestConfig.config
+  def configOverrides = ConfigFactory.empty
 
   // Master for Spark context
   def master = "local[2]"

@@ -23,8 +23,7 @@ import org.scalatest.{BeforeAndAfter, FunSuite}
 import org.scalatest.mock.EasyMockSugar
 
 import org.apache.spark.rdd.RDD
-import org.apache.spark.storage.{BlockManager, RDDBlockId, StorageLevel}
-import org.apache.spark.util.CoreTestConfig._
+import org.apache.spark.storage.{BlockManager, StorageLevel}
 import org.apache.spark.storage.RDDBlockId
 import scala.Some
 
@@ -38,7 +37,7 @@ class CacheManagerSuite extends FunSuite with BeforeAndAfter with EasyMockSugar 
   var rdd: RDD[Int] = _
 
   before {
-    sc = new SparkContext("local", "test", config)
+    sc = new SparkContext("local", "test")
     blockManager = mock[BlockManager]
     cacheManager = new CacheManager(blockManager)
     split = new Partition { override def index: Int = 0 }

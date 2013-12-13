@@ -21,19 +21,17 @@ package org.apache.spark.scheduler
 
 import scala.Some
 
-import org.scalatest.FunSuite
-import org.scalatest.matchers.ShouldMatchers
-
 import org.apache.spark._
 import org.apache.spark.SparkContext._
 import org.apache.spark.rdd.RDD
-import org.apache.spark.util.CoreTestConfig._
+import org.scalatest.FunSuite
+import org.scalatest.matchers.ShouldMatchers
 
 class JobLoggerSuite extends FunSuite with LocalSparkContext with ShouldMatchers {
   val WAIT_TIMEOUT_MILLIS = 10000
 
   test("inner method") {
-    sc = new SparkContext("local", "joblogger", config)
+    sc = new SparkContext("local", "joblogger")
     val joblogger = new JobLogger {
       def createLogWriterTest(jobID: Int) = createLogWriter(jobID)
       def closeLogWriterTest(jobID: Int) = closeLogWriter(jobID)
@@ -106,7 +104,7 @@ class JobLoggerSuite extends FunSuite with LocalSparkContext with ShouldMatchers
   
   
   test("interface functions") {
-    sc = new SparkContext("local[4]", "joblogger", config)
+    sc = new SparkContext("local[4]", "joblogger")
     val joblogger = new JobLogger {
       var onTaskEndCount = 0
       var onJobEndCount = 0 

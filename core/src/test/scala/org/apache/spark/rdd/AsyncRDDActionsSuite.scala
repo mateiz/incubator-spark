@@ -29,7 +29,6 @@ import org.scalatest.time.SpanSugar._
 
 import org.apache.spark.SparkContext._
 import org.apache.spark.{SparkContext, SparkException, LocalSparkContext}
-import org.apache.spark.util.CoreTestConfig._
 
 
 class AsyncRDDActionsSuite extends FunSuite with BeforeAndAfterAll with Timeouts {
@@ -37,7 +36,7 @@ class AsyncRDDActionsSuite extends FunSuite with BeforeAndAfterAll with Timeouts
   @transient private var sc: SparkContext = _
 
   override def beforeAll() {
-    sc = new SparkContext("local[2]", "test", config)
+    sc = new SparkContext("local[2]", "test")
   }
 
   override def afterAll() {

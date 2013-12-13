@@ -25,8 +25,6 @@ import scala.collection.mutable.HashMap
 import org.scalatest.{BeforeAndAfterEach, FunSuite}
 
 import org.apache.spark._
-import org.apache.spark.util.CoreTestConfig._
-
 
 class Lock() {
   var finished = false
@@ -95,7 +93,7 @@ class LocalSchedulerSuite extends FunSuite with LocalSparkContext with BeforeAnd
 
   test("Local FIFO scheduler end-to-end test") {
     System.setProperty("spark.scheduler.mode", "FIFO")
-    sc = new SparkContext("local[4]", "test", config)
+    sc = new SparkContext("local[4]", "test")
     val sem = new Semaphore(0)
 
     createThread(1,null,sc,sem)
@@ -156,7 +154,7 @@ class LocalSchedulerSuite extends FunSuite with LocalSparkContext with BeforeAnd
     val xmlPath = getClass.getClassLoader.getResource("fairscheduler.xml").getFile()
     System.setProperty("spark.scheduler.allocation.file", xmlPath)
 
-    sc = new SparkContext("local[8]", "LocalSchedulerSuite", config)
+    sc = new SparkContext("local[8]", "LocalSchedulerSuite")
     val sem = new Semaphore(0)
 
     createThread(10,"1",sc,sem)

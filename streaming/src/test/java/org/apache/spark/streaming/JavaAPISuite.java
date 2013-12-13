@@ -63,14 +63,10 @@ public class JavaAPISuite implements Serializable {
 
   @Before
   public void setUp() {
-    // This is unfortunate, I can not import the scala class StreamingTestConfig and use here.
-    Map<String, String> m = new HashMap<String, String>(5);
+    Map<String, String> m = new HashMap<String, String>(3);
     m.put("spark.master", "local[2]");
     m.put("spark.appName", "test");
     m.put("spark.streaming.batchDuration", "1000");
-    m.put("spark.streaming.clock","org.apache.spark.streaming.util.ManualClock");
-    m.put("spark.cleaner.ttl","3600");
-    m.put("spark.storage.memoryFraction", "0.66");
     ssc = new JavaStreamingContext(ConfigFactory.parseMap(m));
     ssc.checkpoint("checkpoint");
   }

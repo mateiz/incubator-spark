@@ -17,18 +17,15 @@
 
 package org.apache.spark.scheduler.cluster
 
-import org.scalatest.FunSuite
-import org.scalatest.BeforeAndAfter
+import java.util.Properties
+
+import scala.collection.mutable.ArrayBuffer
+
+import com.typesafe.config.ConfigFactory
 
 import org.apache.spark._
 import org.apache.spark.scheduler._
-import org.apache.spark.scheduler.cluster._
-import scala.collection.mutable.ArrayBuffer
-
-import java.util.Properties
-import org.apache.spark.util.CoreTestConfig._
-import scala.Some
-import com.typesafe.config.ConfigFactory
+import org.scalatest.FunSuite
 
 class FakeTaskSetManager(
     initPriority: Int,

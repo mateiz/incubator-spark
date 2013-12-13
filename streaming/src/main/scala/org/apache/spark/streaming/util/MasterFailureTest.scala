@@ -17,26 +17,23 @@
 
 package org.apache.spark.streaming.util
 
+import java.io.{File, IOException, ObjectInputStream}
+import java.util.UUID
+
+import scala.collection.mutable.{ArrayBuffer, SynchronizedBuffer}
+import scala.reflect.ClassTag
+import scala.util.Random
+
+import com.google.common.io.Files
+import org.apache.commons.io.FileUtils
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.Path
+
 import org.apache.spark.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.streaming._
+import org.apache.spark.streaming.StreamingContext._
 import org.apache.spark.streaming.dstream.ForEachDStream
-import StreamingContext._
-
-import scala.util.Random
-import scala.collection.mutable.{SynchronizedBuffer, ArrayBuffer}
-import scala.reflect.ClassTag
-
-import java.io.{File, ObjectInputStream, IOException}
-import java.util.UUID
-
-import com.google.common.io.Files
-
-import org.apache.commons.io.FileUtils
-import org.apache.hadoop.fs.{FileUtil, FileSystem, Path}
-import org.apache.hadoop.conf.Configuration
-import com.typesafe.config.ConfigFactory
-
 
 private[streaming]
 object MasterFailureTest extends Logging {
@@ -178,8 +175,7 @@ object MasterFailureTest extends Logging {
     fs.mkdirs(testDir)
 
     // Setup the streaming computation with the given operation
-    val ssc = new StreamingContext("local[4]", "MasterFailureTest", batchDuration,
-      StreamingTestConfig.config)
+    val ssc = new StreamingContext("local[4]", "MasterFailureTest", batchDuration)
     ssc.checkpoint(checkpointDir.toString)
     val inputStream = ssc.textFileStream(testDir.toString)
     val operatedStream = operation(inputStream)
