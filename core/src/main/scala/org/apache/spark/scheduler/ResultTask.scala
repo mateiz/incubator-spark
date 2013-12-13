@@ -21,10 +21,9 @@ import java.io._
 import java.util.zip.{GZIPInputStream, GZIPOutputStream}
 
 import org.apache.spark._
-import org.apache.spark.rdd.RDD
-import org.apache.spark.rdd.RDDCheckpointData
-import org.apache.spark.util.{MetadataCleanerType, MetadataCleaner, TimeStampedHashMap}
-import scala.util.Try
+import org.apache.spark.rdd.{RDD, RDDCheckpointData}
+import org.apache.spark.util.{ConfigUtils, MetadataCleaner, MetadataCleanerType,
+  TimeStampedHashMap}
 
 private[spark] object ResultTask {
 
@@ -33,9 +32,8 @@ private[spark] object ResultTask {
   // expensive on the master node if it needs to launch thousands of tasks.
   val serializedInfoCache = new TimeStampedHashMap[Int, Array[Byte]]
 
-  // Apparently in tests SparkEnv.get is null so to cover that case we use Try. TODO: fixme
   val metadataCleaner = new MetadataCleaner(MetadataCleanerType.RESULT_TASK,
-    Try(SparkEnv.get.settings.cleanerTtl).getOrElse(3600), serializedInfoCache.clearOldValues)
+    ConfigUtils.settings.cleanerTtl, serializedInfoCache.clearOldValues)
 
   def serializeInfo(stageId: Int, rdd: RDD[_], func: (TaskContext, Iterator[_]) => _): Array[Byte] = {
     synchronized {

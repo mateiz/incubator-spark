@@ -24,12 +24,10 @@ import scala.collection.mutable.HashMap
 
 import org.apache.spark._
 import org.apache.spark.executor.ShuffleWriteMetrics
+import org.apache.spark.rdd.{RDD, RDDCheckpointData}
 import org.apache.spark.storage._
-import org.apache.spark.util.{MetadataCleanerType, TimeStampedHashMap, MetadataCleaner}
-import org.apache.spark.rdd.RDD
-import org.apache.spark.rdd.RDDCheckpointData
-import scala.util.Try
-
+import org.apache.spark.util.{ConfigUtils, MetadataCleaner, MetadataCleanerType,
+  TimeStampedHashMap}
 
 private[spark] object ShuffleMapTask {
 
@@ -37,9 +35,9 @@ private[spark] object ShuffleMapTask {
   // Served as a cache for task serialization because serialization can be
   // expensive on the master node if it needs to launch thousands of tasks.
   val serializedInfoCache = new TimeStampedHashMap[Int, Array[Byte]]
-  // Apparently in tests SparkEnv.get is null so to cover that case we use Try. TODO: fixme
+
   val metadataCleaner = new MetadataCleaner(MetadataCleanerType.SHUFFLE_MAP_TASK,
-    Try(SparkEnv.get.settings.cleanerTtl).getOrElse(3600), serializedInfoCache.clearOldValues)
+    ConfigUtils.settings.cleanerTtl, serializedInfoCache.clearOldValues)
 
   def serializeInfo(stageId: Int, rdd: RDD[_], dep: ShuffleDependency[_,_]): Array[Byte] = {
     synchronized {
