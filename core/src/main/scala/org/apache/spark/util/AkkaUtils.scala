@@ -44,7 +44,7 @@ private[spark] object AkkaUtils {
   def createActorSystem(name: String, host: String, port: Int, 
     settings: SparkEnv.Settings, indestructible: Boolean = false): (ActorSystem, Int) = {
     import settings._
-    val akkaConf = getConf.withOnlyPath("akka").withFallback(ConfigFactory.parseString(
+    val akkaConf = config.withOnlyPath("akka").withFallback(ConfigFactory.parseString(
       s"""
       |akka.daemonic = on
       |akka.loggers = [""akka.event.slf4j.Slf4jLogger""]

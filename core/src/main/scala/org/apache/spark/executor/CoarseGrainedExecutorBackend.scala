@@ -19,14 +19,14 @@ package org.apache.spark.executor
 
 import java.nio.ByteBuffer
 
+import scala.util.Try
+
 import akka.actor._
 import akka.remote._
-
-import org.apache.spark.{SparkEnv, Logging}
+import org.apache.spark.Logging
 import org.apache.spark.TaskState.TaskState
 import org.apache.spark.scheduler.cluster.CoarseGrainedClusterMessages._
-import org.apache.spark.util.{ConfigUtils, Utils, AkkaUtils}
-import com.typesafe.config.ConfigFactory
+import org.apache.spark.util.{AkkaUtils, ConfigUtils, Utils}
 
 private[spark] class CoarseGrainedExecutorBackend(
     driverUrl: String,
@@ -52,10 +52,11 @@ private[spark] class CoarseGrainedExecutorBackend(
   override def receive = {
     case RegisteredExecutor(sparkConfig) =>
       logInfo("Successfully registered with driver")
-      logInfo("Configuration: \n" + sparkConfig.root.render)
+      if (Try(sparkConfig.getBoolean("spark.log.confAsInfo")).getOrElse(false))
+        logInfo("Configuration: \n" + sparkConfig.root.render)
       // Make this host instead of hostPort ?
-
       executor = new Executor(executorId, Utils.parseHostPort(hostPort)._1, sparkConfig)
+
     case RegisterExecutorFailed(message) =>
       logError("Slave registration failed: " + message)
       System.exit(1)

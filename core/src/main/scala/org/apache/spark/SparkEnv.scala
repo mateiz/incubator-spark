@@ -255,9 +255,8 @@ object SparkEnv extends Logging {
    * Note: Properties that do not have a default alternative can not be kept as val, use def
    * instead.
    */
-  private[spark] class Settings(config: Config) {
+  private[spark] class Settings(internalConfig: Config) {
 
-    import config._
     import scala.reflect.classTag
 
     private var mutableConf: Config = ConfigFactory.empty
@@ -271,6 +270,8 @@ object SparkEnv extends Logging {
      * @return
      */
     private def configure[T: ClassTag](propertyName: String, defaultValue: T): T = {
+      import internalConfig._
+
       val result = classTag[T] match {
         case CtagInt => Try(getInt(propertyName).asInstanceOf[T]).getOrElse(defaultValue)
         case CtagDouble => Try(getDouble(propertyName).asInstanceOf[T]).getOrElse(defaultValue)
@@ -292,6 +293,8 @@ object SparkEnv extends Logging {
     }
     @throws[Exception]
     private def configure[T: ClassTag](propertyName: String): T = {
+      import internalConfig._
+
       val result = classTag[T] match {
         case CtagInt => getInt(propertyName).asInstanceOf[T]
         case CtagDouble => getDouble(propertyName).asInstanceOf[T]
@@ -310,13 +313,13 @@ object SparkEnv extends Logging {
       result
     }
     /*All of the configurations are set as final so that they can not be overriden.*/
-    final def sparkHome = Try(getString("spark.home")).toOption
+    final def sparkHome = Try(internalConfig.getString("spark.home")).toOption
       .orElse(Option(System.getenv("SPARK_HOME")))
 
     final val sparkLocalDir = configure("spark.local.dir", System.getProperty("java.io.tmpdir"))
     final val memoryFraction = configure("spark.storage.memoryFraction", 0.66)
-    final val logConf = configure("spark.log.confAsInfo", true)
-    final val sparkUser = Try(getString("user.name")).getOrElse(  // we don't set this augmented conf.
+    final val logConf = configure("spark.log.confAsInfo", false)
+    final val sparkUser = Try(internalConfig.getString("user.name")).getOrElse(  // we don't set this augmented conf.
       Option(System.getenv("SPARK_USER")).getOrElse(SparkContext.SPARK_UNKNOWN_USER))
 
     final val closureSerializer = configure("spark.closure.serializer",
@@ -483,6 +486,6 @@ object SparkEnv extends Logging {
 
     override def toString = mutableConf.root().render()
 
-    def getConf = mutableConf.withFallback(config)
+    def config = mutableConf.withFallback(internalConfig)
   }
 }
