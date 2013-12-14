@@ -63,10 +63,11 @@ public class JavaAPISuite implements Serializable {
 
   @Before
   public void setUp() {
-    Map<String, String> m = new HashMap<String, String>(3);
+    Map<String, String> m = new HashMap<String, String>(4);
     m.put("spark.master", "local[2]");
     m.put("spark.appName", "test");
     m.put("spark.streaming.batchDuration", "1000");
+    m.put("spark.streaming.clock","org.apache.spark.streaming.util.ManualClock");
     ssc = new JavaStreamingContext(ConfigFactory.parseMap(m));
     ssc.checkpoint("checkpoint");
   }
