@@ -458,7 +458,7 @@ object Client {
   val SPARK_JAR: String = "spark.jar"
   val APP_JAR: String = "app.jar"
   val LOG4J_PROP: String = "log4j.properties"
-  val settings = new SparkEnv.Settings(ConfigUtils.loadConfig())
+  val settings = ConfigUtils.settings
   def main(argStrings: Array[String]) {
     // Set an env variable indicating we are running in YARN mode.
     // Note that anything with SPARK prefix gets propagated to all (remote) processes

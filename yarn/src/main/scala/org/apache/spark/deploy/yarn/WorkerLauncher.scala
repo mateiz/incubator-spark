@@ -242,6 +242,6 @@ class WorkerLauncher(args: ApplicationMasterArguments, conf: Configuration,
 object WorkerLauncher {
   def main(argStrings: Array[String]) {
     val args = new ApplicationMasterArguments(argStrings)
-    new WorkerLauncher(args, new SparkEnv.Settings(ConfigUtils.loadConfig())).run()
+    new WorkerLauncher(args, ConfigUtils.settings).run()
   }
 }

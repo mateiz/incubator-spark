@@ -23,6 +23,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 
 import scala.collection.JavaConversions._
+import scala.util.Try
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -38,8 +39,7 @@ import org.apache.hadoop.yarn.util.{ConverterUtils, Records}
 import org.apache.spark.{SparkEnv, SparkContext, Logging}
 import org.apache.spark.util.{ConfigUtils, Utils}
 
-import scala.collection.JavaConversions._
-import scala.util.Try
+
 
 class ApplicationMaster(args: ApplicationMasterArguments, conf: Configuration,
   var settings: SparkEnv.Settings) extends Logging {

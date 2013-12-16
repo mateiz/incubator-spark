@@ -22,12 +22,13 @@ import java.io.{IOException, ObjectInputStream}
 import scala.collection.mutable.{ArrayBuffer, SynchronizedBuffer}
 import scala.reflect.ClassTag
 
+import com.typesafe.config.ConfigFactory
+import org.scalatest.{BeforeAndAfter, FunSuite}
+
 import org.apache.spark.Logging
 import org.apache.spark.rdd.RDD
 import org.apache.spark.streaming.dstream.{ForEachDStream, InputDStream}
 import org.apache.spark.streaming.util.ManualClock
-import org.scalatest.{BeforeAndAfter, FunSuite}
-import com.typesafe.config.ConfigFactory
 
 /**
  * This is a input stream just for the testsuites. This is equivalent to a checkpointable,

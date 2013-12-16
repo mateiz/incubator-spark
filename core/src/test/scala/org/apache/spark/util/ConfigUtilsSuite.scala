@@ -32,7 +32,7 @@ class ConfigUtilsSuite extends FunSuite with BeforeAndAfter {
 
   test("loadConfig should return defaults from spark-defaults.conf") {
     val conf = ConfigUtils.loadConfig()
-    assert(conf.getInt("spark.driver.port") === 0)
+    assert(conf.getString("spark.serializer") === "org.apache.spark.serializer.JavaSerializer")
   }
 
   test("loadConfig should let system properties override spark-defaults") {

@@ -30,7 +30,6 @@ import akka.pattern.ask
 import org.apache.spark.scheduler.MapStatus
 import org.apache.spark.storage.BlockManagerId
 import org.apache.spark.util.{MetadataCleanerType, Utils, MetadataCleaner, TimeStampedHashMap}
-import com.typesafe.config.Config
 
 
 private[spark] sealed trait MapOutputTrackerMessage
