@@ -82,7 +82,7 @@ abstract class RDD[T: ClassTag](
     this(oneParent.context , List(new OneToOneDependency(oneParent)))
 
   @transient
-  def settings = sc.settings
+  private[spark] def settings = sc.settings
 
   // =======================================================================
   // Methods that should be implemented by subclasses of RDD

@@ -292,6 +292,7 @@ object SparkEnv extends Logging {
       mutableConf = con.withFallback(mutableConf)
       result
     }
+
     @throws[Exception]
     private def configure[T: ClassTag](propertyName: String): T = {
       import internalConfig._
@@ -313,7 +314,8 @@ object SparkEnv extends Logging {
       mutableConf = con.withFallback(mutableConf)
       result
     }
-    /*All of the configurations are set as final so that they can not be overriden.*/
+
+    /* All of the configurations are set as final so that they can not be overriden. */
     final def sparkHome = Try(internalConfig.getString("spark.home")).toOption
       .orElse(Option(System.getenv("SPARK_HOME")))
 
@@ -377,11 +379,13 @@ object SparkEnv extends Logging {
     final val kryoReferenceTracking = configure("spark.kryo.referenceTracking", true)
     final val kryoSerializerBufferMb = configure("spark.kryoserializer.buffer.mb", 2)
 
-    final def kryoRegistrator = Try(configure[String]("spark.kryo.registrator")).toOption
+    final def kryoRegistrator = configure[String]("spark.kryo.registrator")
 
     // Broadcast Related
     final val compressBroadcast = configure("spark.broadcast.compress", true)
+
     final def httpBroadcastURI = configure[String]("spark.httpBroadcast.uri")
+
     final val broadCastFactory = configure("spark.broadcast.factory",
       "org.apache.spark.broadcast.HttpBroadcastFactory")
 
@@ -398,7 +402,7 @@ object SparkEnv extends Logging {
     final val akkaHeartBeatInterval = configure("spark.akka.heartbeat.interval", 1000)
     final val askTimeout = configure("spark.akka.askTimeout", 10)
 
-    //Scheduling related
+    // Scheduling related
     final val schedulingMode = configure("spark.scheduler.mode", "FIFO")
     final val mesosIsCoarse = configure("spark.mesos.coarse", false)
     final val simrMaxCores = configure("spark.simr.executor.cores", 1)
@@ -407,7 +411,7 @@ object SparkEnv extends Logging {
 
     final def schedulerAllocationFile = configure[String]("spark.scheduler.allocation.file")
 
-    //Blockmanager related
+    // Blockmanager related
     final def maxMemBlockManager = configure("spark.storage.blockmanager.maxmem",
       (Runtime.getRuntime.maxMemory * memoryFraction).toLong)
 
@@ -422,7 +426,7 @@ object SparkEnv extends Logging {
     final val akkaRetries = configure("spark.akka.num.retries", 3)
     final val akkaRetryInterval = configure("spark.akka.retry.wait", 3000)
 
-    //Task related
+    // Task related
     final val localityWait = configure("spark.locality.wait", 3000l)
     final val cpuPerTask = configure("spark.task.cpus", 1)
     final val taskMaxFailures = configure("spark.task.maxFailures", 4)
@@ -440,11 +444,12 @@ object SparkEnv extends Logging {
     final val exceptionPrintInterval = configure("spark.logging.exceptionPrintInterval", 10000l)
     final val shuffleNettyConnectTimeout = configure("spark.shuffle.netty.connect.timeout", 60000)
 
-    //Compression related
+    // Compression related
     final val compressionCodec = configure("spark.io.compression.codec",
       classOf[LZFCompressionCodec].getName)
     final val snappyCompressionBlockSize = configure("spark.io.compression.snappy.block.size", 32768)
-    //Connection Manager related
+
+    // Connection Manager related
     final val handlerMinThreads = configure("spark.core.connection.handler.threads.min", 20)
     final val handlerMaxThreads = configure("spark.core.connection.handler.threads.max", 60)
     final val handlerKeepalive = configure("spark.core.connection.handler.threads.keepalive", 60)
@@ -455,7 +460,7 @@ object SparkEnv extends Logging {
     final val connectMaxThreads = configure("spark.core.connection.connect.threads.max", 8)
     final val connectKeepalive = configure("spark.core.connection.connect.threads.keepalive", 60)
 
-    //deploy related
+    // Deploy related
     final val workerTimeout = configure("spark.worker.timeout", 60l)
     final val retainedApplication = configure("spark.deploy.retainedApplications", 200)
     final val workerPersistence = configure("spark.dead.worker.persistence", 15)
@@ -467,14 +472,14 @@ object SparkEnv extends Logging {
 
     final val workerUiPort = configure("worker.ui.port", WorkerWebUI.DEFAULT_PORT)
 
-    //Streaming
+    // Streaming
     final val blockInterval = configure("spark.streaming.blockInterval", 200l)
     final val concurrentJobs = configure("spark.streaming.concurrentJobs", 1)
     final val clockClass = configure("spark.streaming.clock",
       "org.apache.spark.streaming.util.SystemClock")
     final val jumpTime = configure("spark.streaming.manualClock.jump", 0l)
 
-    //yarn
+    // Yarn
     final val yarnReplication = configure("spark.yarn.submit.file.replication", 3).toShort
     final val yarnUserClasspathFirst = configure("spark.yarn.user.classpath.first", false)
 

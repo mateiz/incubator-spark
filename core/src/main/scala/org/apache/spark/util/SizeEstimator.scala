@@ -26,6 +26,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.{Success => ScalaSuccess, Try}
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet
+
 import org.apache.spark.Logging
 
 /**
@@ -50,7 +51,7 @@ private[spark] object SizeEstimator extends Logging {
   // Alignment boundary for objects
   // TODO: Is this arch dependent ?
   private val ALIGN_SIZE = 8
-  private[spark] var settings = ConfigUtils.settings //var for testing only.
+  private[spark] var settings = ConfigUtils.settings // var for testing only.
   // A cache of ClassInfo objects for each class
   private val classInfos = new ConcurrentHashMap[Class[_], ClassInfo]
 

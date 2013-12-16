@@ -20,19 +20,16 @@ package org.apache.spark.storage
 import java.nio.ByteBuffer
 
 import akka.actor._
-
-import org.scalatest.FunSuite
-import org.scalatest.BeforeAndAfter
-import org.scalatest.PrivateMethodTester
+import com.typesafe.config.ConfigFactory
+import org.scalatest.{BeforeAndAfter, FunSuite, PrivateMethodTester}
 import org.scalatest.concurrent.Eventually._
 import org.scalatest.concurrent.Timeouts._
 import org.scalatest.matchers.ShouldMatchers._
 import org.scalatest.time.SpanSugar._
 
-import org.apache.spark.util._
-import org.apache.spark.serializer.{JavaSerializer, KryoSerializer}
-import com.typesafe.config.ConfigFactory
 import org.apache.spark.SparkEnv
+import org.apache.spark.serializer.{JavaSerializer, KryoSerializer}
+import org.apache.spark.util._
 
 class BlockManagerSuite extends FunSuite with BeforeAndAfter with PrivateMethodTester {
   var store: BlockManager = null
@@ -60,7 +57,7 @@ class BlockManagerSuite extends FunSuite with BeforeAndAfter with PrivateMethodT
        """.stripMargin))
 
   before {
-    val (actorSystem, boundPort) = AkkaUtils.createActorSystem("test", "localhost", 0,
+    val (actorSystem, _) = AkkaUtils.createActorSystem("test", "localhost", 0,
       defaultSettings)
 
     this.actorSystem = actorSystem
@@ -72,8 +69,6 @@ class BlockManagerSuite extends FunSuite with BeforeAndAfter with PrivateMethodT
     // Set the arch to 64-bit and compressedOops to true to get a deterministic test-case
     oldArch = System.setProperty("os.arch", "amd64")
     oldOops = System.setProperty("spark.test.useCompressedOops", "true")
-    //TODO: remove it, since it is not used anywhere in the code base.
-    oldHeartBeat = System.setProperty("spark.storage.disableBlockManagerHeartBeat", "true")
     val initialize = PrivateMethod[Unit]('initialize)
     SizeEstimator invokePrivate initialize()
   }

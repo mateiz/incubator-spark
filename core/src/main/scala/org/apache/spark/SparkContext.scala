@@ -130,7 +130,8 @@ class SparkContext(
    */
   private[spark] def settings = env.settings
 
-  if(settings.logConf) { //Since logging it can be very noisy in logs.
+  if (settings.logConf) {
+    //Since logging it can be very noisy in logs.
     logInfo("Starting Spark Context with config:\n" + settings.toString)
   }
   // Used to store a URL for each static file/jar together with the file's local timestamp

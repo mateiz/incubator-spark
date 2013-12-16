@@ -5,26 +5,18 @@ title: Spark Configuration
 
 Spark provides three main locations to configure the system:
 
-* [SparkContext configuration](#sparkcontext-configuration), which control configuration parameters
-  for each Spark application and can be programmatically set by passing in a Config object to the SparkContext,
-  or through JVM arguments
-* [Environment variables](#environment-variables) for configuring per-machine settings such as the IP address,
-  which can be set in the `conf/spark-env.sh` script.
+* [SparkContext configuration](#sparkcontext-configuration), which control configuration parameters for each Spark application and can be programmatically set by passing in a Config object to the SparkContext, or through JVM arguments
+* [Environment variables](#environment-variables) for configuring per-machine settings such as the IP address, which can be set in the `conf/spark-env.sh` script.
 * [Logging configuration](#configuring-logging), which is done through `log4j.properties`.
 
 
 # SparkContext Configuration
 
-A Spark application may be configured in a number of different ways.  The configuration methods are listed
-in order of priority, and any configuration properties passed in through methods listed first will take
-precedence.
+A Spark application may be configured in a number of different ways. The configuration methods are listed in order of precedence.
 
-1. Any Config objects passed in through the SparkContext constructor.  These are [Typesafe Config](https://github.com/typesafehub/config)
-   instances, which can easily be created from JSON or .property files.
-2. Java system properties, defined programmatically (`System.setProperty`) or through -D flags passed in to
-   the JVM
-3. A config file (could be JSON) defined at the URL in the system property `spark.config.url`, or the
-   environment variable `SPARK_CONFIG_URL`, if defined.  This could be HTTP, FTP, or just plain file URI.
+1. Any Config objects passed in through the SparkContext constructor. These are [Typesafe Config](https://github.com/typesafehub/config) instances, which can easily be created from JSON or .property files.
+2. Java system properties, defined programmatically (`System.setProperty`) or through -D flags passed in to the JVM
+3. A config file (could be JSON) defined at the URL in the system property `spark.config.url`, or the environment variable `SPARK_CONFIG_URL`, if defined.  This could be HTTP, FTP, or just plain file URI.
 4. The defaults in `org.apache.spark.spark-defaults.conf` in the classpath
 
 For example, to programmatically set some properties and directly pass it into a SparkContext, you can do
@@ -37,6 +29,8 @@ val extraConfig = ConfigUtils.parseFromMap(Map(
 val sc = new SparkContext("local", name, extraConfig)
 {% endhighlight %}
 
+## Migrating from Spark 0.8 and earlier
+
 You can also use system properties for configuring Spark. You need to either pass it with a -D flag to the JVM (for example `java -Dspark.cores.max=5 MyProgram`) or call `System.setProperty` in your code *before* creating your Spark context. Now this is different than before, earlier(in older versions i.e. before 0.9.x) it was possible to configure even after spark context is created, it made sense inside the repl. However this is not possible now, the configuration either provided as config files or with setProperty has to be provided before creating a spark context. It is thus important to note *configuration settings are immutable* and are picked up at the time of creation of spark context.
 
 {% highlight scala %}
@@ -44,8 +38,9 @@ System.setProperty("spark.cores.max", "5")
 val sc = new SparkContext(...)
 {% endhighlight %}
 
-Most of the configurable system properties control internal settings that have reasonable default values. However,
-there are at least five properties that you will commonly want to control:
+## Important properties
+
+Most of the configurable system properties control internal settings that have reasonable default values. However, there are at least five properties that you will commonly want to control:
 
 <table class="table">
 <tr><th>Property Name</th><th>Default</th><th>Meaning</th></tr>
@@ -98,7 +93,7 @@ there are at least five properties that you will commonly want to control:
 </tr>
 </table>
 
-
+## Other properties.
 Apart from these, the following properties are also available, and may be useful in some situations:
 
 <table class="table">
@@ -409,14 +404,9 @@ Apart from these, the following properties are also available, and may be useful
 
 # Environment Variables
 
-Certain Spark settings can also be configured through environment variables, which are read from the `conf/spark-env.sh`
-script in the directory where Spark is installed (or `conf/spark-env.cmd` on Windows). These variables are meant to be for machine-specific settings, such
-as library search paths. While Java system properties can also be set here, for application settings, we recommend setting
-these properties within the application instead of in `spark-env.sh` so that different applications can use different
-settings.
+Certain Spark settings can also be configured through environment variables, which are read from the `conf/spark-env.sh` script in the directory where Spark is installed (or `conf/spark-env.cmd` on Windows). These variables are meant to be for machine-specific settings, such as library search paths. While Java system properties can also be set here, for application settings, we recommend setting these properties within the application instead of in `spark-env.sh` so that different applications can use different settings.
 
-Note that `conf/spark-env.sh` does not exist by default when Spark is installed. However, you can copy
-`conf/spark-env.sh.template` to create it. Make sure you make the copy executable.
+Note that `conf/spark-env.sh` does not exist by default when Spark is installed. However, you can copy `conf/spark-env.sh.template` to create it. Make sure you make the copy executable.
 
 The following variables can be set in `spark-env.sh`:
 
@@ -424,18 +414,12 @@ The following variables can be set in `spark-env.sh`:
 * `PYSPARK_PYTHON`, the Python binary to use for PySpark
 * `SPARK_LOCAL_IP`, to configure which IP address of the machine to bind to.
 * `SPARK_LIBRARY_PATH`, to add search directories for native libraries.
-* `SPARK_CLASSPATH`, to add elements to Spark's classpath that you want to be present for _all_ applications.
-   Note that applications can also add dependencies for themselves through `SparkContext.addJar` -- we recommend
-   doing that when possible.
-* `SPARK_JAVA_OPTS`, to add JVM options. This includes Java options like garbage collector settings and any system
-   properties that you'd like to pass with `-D` (e.g., `-Dspark.local.dir=/disk1,/disk2`).
-* Options for the Spark [standalone cluster scripts](spark-standalone.html#cluster-launch-scripts), such as number of cores
-  to use on each machine and maximum memory.
+* `SPARK_CLASSPATH`, to add elements to Spark's classpath that you want to be present for _all_ applications. Note that applications can also add dependencies for themselves through `SparkContext.addJar` -- we recommend doing that when possible.
+* `SPARK_JAVA_OPTS`, to add JVM options. This includes Java options like garbage collector settings and any system properties that you'd like to pass with `-D` (e.g., `-Dspark.local.dir=/disk1,/disk2`).
+* Options for the Spark [standalone cluster scripts](spark-standalone.html#cluster-launch-scripts), such as number of cores to use on each machine and maximum memory.
 
-Since `spark-env.sh` is a shell script, some of these can be set programmatically -- for example, you might
-compute `SPARK_LOCAL_IP` by looking up the IP of a specific network interface.
+Since `spark-env.sh` is a shell script, some of these can be set programmatically -- for example, you might compute `SPARK_LOCAL_IP` by looking up the IP of a specific network interface.
 
 # Configuring Logging
 
-Spark uses [log4j](http://logging.apache.org/log4j/) for logging. You can configure it by adding a `log4j.properties`
-file in the `conf` directory. One way to start is to copy the existing `log4j.properties.template` located there.
+Spark uses [log4j](http://logging.apache.org/log4j/) for logging. You can configure it by adding a `log4j.properties` file in the `conf` directory. One way to start is to copy the existing `log4j.properties.template` located there.

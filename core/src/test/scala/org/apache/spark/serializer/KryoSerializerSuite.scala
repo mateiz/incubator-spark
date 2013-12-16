@@ -20,11 +20,11 @@ package org.apache.spark.serializer
 import scala.collection.mutable
 
 import com.esotericsoftware.kryo.Kryo
-
+import com.typesafe.config.ConfigFactory
 import org.scalatest.FunSuite
+
 import org.apache.spark.SharedSparkContext
 import org.apache.spark.serializer.KryoTest._
-import com.typesafe.config.ConfigFactory
 
 class KryoSerializerSuite extends FunSuite with SharedSparkContext {
 

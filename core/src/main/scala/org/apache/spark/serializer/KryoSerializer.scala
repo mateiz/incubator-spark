@@ -20,10 +20,13 @@ package org.apache.spark.serializer
 import java.io.{EOFException, InputStream, OutputStream}
 import java.nio.ByteBuffer
 
+import scala.util.Try
+
 import com.esotericsoftware.kryo.{Kryo, KryoException}
 import com.esotericsoftware.kryo.io.{Input => KryoInput, Output => KryoOutput}
 import com.esotericsoftware.kryo.serializers.{JavaSerializer => KryoJavaSerializer}
 import com.twitter.chill.{AllScalaRegistrar, EmptyScalaKryoInstantiator}
+
 import org.apache.spark.{Logging, SerializableWritable}
 import org.apache.spark.broadcast.HttpBroadcast
 import org.apache.spark.scheduler.MapStatus
@@ -56,10 +59,12 @@ class KryoSerializer extends org.apache.spark.serializer.Serializer with Logging
 
     // Allow the user to register their own classes by setting spark.kryo.registrator
     try {
-      settings.kryoRegistrator.foreach { regCls =>
-        logDebug("Running user registrator: " + regCls)
-        val reg = Class.forName(regCls, true, classLoader).newInstance().asInstanceOf[KryoRegistrator]
-        reg.registerClasses(kryo)
+      Try(settings.kryoRegistrator).toOption.foreach {
+        regCls =>
+          logDebug("Running user registrator: " + regCls)
+          val reg = Class.forName(regCls, true, classLoader).newInstance()
+            .asInstanceOf[KryoRegistrator]
+          reg.registerClasses(kryo)
       }
     } catch {
       case _: Exception => println("Failed to register spark.kryo.registrator")

@@ -17,11 +17,9 @@
 
 package org.apache.spark.util
 
-import java.util.{TimerTask, Timer}
-import org.apache.spark.Logging
-import com.typesafe.config.Config
-import scala.util.Try
+import java.util.{Timer, TimerTask}
 
+import org.apache.spark.Logging
 
 /**
  * Runs a timer task to periodically clean up metadata (e.g. old files or hashtable entries)

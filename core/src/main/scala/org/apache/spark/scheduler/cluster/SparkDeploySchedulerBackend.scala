@@ -18,9 +18,8 @@
 package org.apache.spark.scheduler.cluster
 
 import org.apache.spark.{Logging, SparkContext}
+import org.apache.spark.deploy.{ApplicationDescription, Command}
 import org.apache.spark.deploy.client.{Client, ClientListener}
-import org.apache.spark.deploy.{Command, ApplicationDescription}
-import scala.collection.mutable.HashMap
 import org.apache.spark.util.Utils
 
 private[spark] class SparkDeploySchedulerBackend(
@@ -42,9 +41,8 @@ private[spark] class SparkDeploySchedulerBackend(
     super.start()
     // The endpoint for executors to talk to us
     val (driverHost, driverPort) = sc.getDriverHostAndPort
-    val driverUrl = "akka.tcp://spark@%s:%s/user/%s".format(
-      driverHost, driverPort,
-      CoarseGrainedSchedulerBackend.ACTOR_NAME)
+    val driverUrl =
+      s"akka.tcp://spark@$driverHost:$driverPort/user/${CoarseGrainedSchedulerBackend.ACTOR_NAME}"
     val args = Seq(driverUrl, "{{EXECUTOR_ID}}", "{{HOSTNAME}}", "{{CORES}}")
     val command = Command(
       "org.apache.spark.executor.CoarseGrainedExecutorBackend", args, sc.executorEnvs)
