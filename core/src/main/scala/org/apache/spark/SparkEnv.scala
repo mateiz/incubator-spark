@@ -21,13 +21,14 @@ import java.lang.System
 
 import scala.collection.mutable
 import scala.reflect.ClassTag
-import scala.reflect.ClassTag.{ Int => CtagInt, Long => CtagLong,
-  Double => CtagDouble, Boolean => CtagBool}
+import scala.reflect.ClassTag.{Boolean => CtagBool, Double => CtagDouble, Int => CtagInt,
+  Long => CtagLong}
 import scala.util.Try
 
 import akka.actor._
 import com.google.common.collect.MapMaker
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions}
+
 import org.apache.spark.api.python.PythonWorkerFactory
 import org.apache.spark.broadcast.BroadcastManager
 import org.apache.spark.deploy.worker.ui.WorkerWebUI
@@ -490,7 +491,7 @@ object SparkEnv extends Logging {
       5000l)
     final val yarnPreserveFiles = configure("spark.yarn.preserve.staging.files", false)
 
-    override def toString = mutableConf.root().render()
+    override def toString = mutableConf.root.render(ConfigRenderOptions.defaults.setComments(true))
 
     def config = mutableConf.withFallback(internalConfig)
   }
