@@ -66,7 +66,7 @@ private[spark] class MetricsSystem private (val instance: String, settings: Spar
   extends Logging {
   initLogging()
 
-  val confFile = Try(settings.metricsConfFile).toOption
+  val confFile = settings.metricsConfFile
   val metricsConfig = new MetricsConfig(confFile)
 
   val sinks = new mutable.ArrayBuffer[Sink]

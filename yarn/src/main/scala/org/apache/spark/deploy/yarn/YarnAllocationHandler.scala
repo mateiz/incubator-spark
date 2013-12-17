@@ -563,7 +563,7 @@ object YarnAllocationHandler {
       args.workerMemory,
       args.workerCores,
       settings.driverHost, 
-      settings.driverPort,
+      settings.driverPort.get,
       Map[String, Int](),
       Map[String, Int]())
   }
@@ -585,7 +585,7 @@ object YarnAllocationHandler {
       args.workerMemory,
       args.workerCores,
       settings.driverHost,
-      settings.driverPort,
+      settings.driverPort.get,
       hostToCount,
       rackToCount)
   }
@@ -610,7 +610,7 @@ object YarnAllocationHandler {
       workerMemory,
       workerCores,
       settings.driverHost,
-      settings.driverPort,
+      settings.driverPort.get,
       hostToCount,
       rackToCount)
   }

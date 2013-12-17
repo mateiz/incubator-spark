@@ -53,7 +53,7 @@ private[spark] class YarnClientSchedulerBackend(
       workerNumber = defaultWorkerNumber
 
     val driverHost = sc.settings.driverHost
-    val driverPort = sc.settings.driverPort
+    val driverPort = sc.settings.driverPort.get
     val hostport = driverHost + ":" + driverPort
 
     val argsArray = Array[String](

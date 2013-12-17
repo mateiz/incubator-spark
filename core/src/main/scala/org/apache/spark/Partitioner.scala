@@ -56,9 +56,9 @@ object Partitioner {
     for (r <- bySize if r.partitioner != None) {
       return r.partitioner.get
     }
-    Try(rdd.settings.defaultParallelism) match {
-      case _: ScalaSuccess[_] => new HashPartitioner(rdd.context.defaultParallelism)
-      case Failure(_) => new HashPartitioner(bySize.head.partitions.size)
+    rdd.settings.defaultParallelism match {
+      case Some(_) => new HashPartitioner(rdd.context.defaultParallelism)
+      case None => new HashPartitioner(bySize.head.partitions.size)
     }
   }
 }

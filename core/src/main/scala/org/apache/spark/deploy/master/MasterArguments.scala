@@ -38,9 +38,9 @@ private[spark] class MasterArguments(args: Array[String]) {
   if (System.getenv("SPARK_MASTER_WEBUI_PORT") != null) {
     webUiPort = System.getenv("SPARK_MASTER_WEBUI_PORT").toInt
   }
-  Try(ConfigUtils.settings.masterUiPort) match {
-    case Success(x: Int) => webUiPort = x
-    case _ =>
+  ConfigUtils.settings.masterUiPort match {
+    case Some(x: Int) => webUiPort = x
+    case None =>
   }
 
   parse(args.toList)

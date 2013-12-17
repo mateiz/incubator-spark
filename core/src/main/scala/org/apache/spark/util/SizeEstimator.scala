@@ -23,7 +23,6 @@ import java.util.{IdentityHashMap, Random}
 import java.util.concurrent.ConcurrentHashMap
 
 import scala.collection.mutable.ArrayBuffer
-import scala.util.{Success => ScalaSuccess, Try}
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 
@@ -87,8 +86,8 @@ private[spark] object SizeEstimator extends Logging {
   }
 
   private def getIsCompressedOops : Boolean = {
-    Try(settings.useCompressedOops) match {
-      case ScalaSuccess(x: Boolean) => return x
+    settings.useCompressedOops match {
+      case Some(x: Boolean) => return x
       case _ =>
     }
 

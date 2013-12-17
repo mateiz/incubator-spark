@@ -177,7 +177,7 @@ abstract class NetworkReceiver[T: ClassTag]() extends Serializable with Logging 
     logInfo("Attempting to register with tracker")
     // Both the driver host and port are always set by SparkContext in the config
     val ip = env.settings.driverHost
-    val port = env.settings.driverPort
+    val port = env.settings.driverPort.get
     val url = "akka.tcp://spark@%s:%s/user/NetworkInputTracker".format(ip, port)
     val tracker = env.actorSystem.actorSelection(url)
     val timeout = 5.seconds

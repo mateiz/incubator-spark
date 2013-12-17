@@ -59,7 +59,7 @@ class KryoSerializer extends org.apache.spark.serializer.Serializer with Logging
 
     // Allow the user to register their own classes by setting spark.kryo.registrator
     try {
-      Try(settings.kryoRegistrator).toOption.foreach {
+      settings.kryoRegistrator.foreach {
         regCls =>
           logDebug("Running user registrator: " + regCls)
           val reg = Class.forName(regCls, true, classLoader).newInstance()

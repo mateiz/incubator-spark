@@ -62,6 +62,7 @@ import org.apache.spark.util.ConfigUtils._
  *
  * @param config a Typesafe Config object describing the context configuration. Any settings in this
  *               config overrides the default configs as well as system properties.
+ *               For more details: https://github.com/typesafehub/config
  *
  * == Configuration Details ==
  * Only spark.master and spark.appName are required.
@@ -119,10 +120,11 @@ class SparkContext(
   // Ensure logging is initialized before we spawn any threads
   initLogging()
 
-  // Obtain a merged configuration.  The priorities are as follows:
+  // Obtain a merged configuration in the order of their precedence.
   // 1. Any config settings defined in the config parameter
   // 2. Java system properties
-  // 3. config file (could be JSON) defined at URL in system property "spark.config.url", if defined
+  // 3. Config file in any valid typesafe config format defined at URL in system property
+  //    "spark.config.url", if set.
   // 4. Defaults in spark-defaults.conf in classpath
   val mergedConfig = loadConfig() ++ config
 
@@ -137,13 +139,10 @@ class SparkContext(
     isLocal)
   SparkEnv.set(env)
 
-  /**
-   * TODO: Decide whether to expose this to user.
-   */
   private[spark] def settings = env.settings
 
   if (settings.logConf) {
-    //Since logging it can be very noisy in logs.
+    // Since logging it can be very noisy in logs.
     logInfo("Starting Spark Context with config:\n" + settings.toString)
   }
   // Used to store a URL for each static file/jar together with the file's local timestamp
@@ -206,11 +205,11 @@ class SparkContext(
     }
      import scala.collection.JavaConversions._
     // Copy any "spark.hadoop.foo=bar" system properties into conf as "foo=bar"
-    //TODO Test this.
+    // TODO Test this.
     config.entrySet().foreach {
-      x =>  if (x.getKey.startsWith("spark.hadoop.")) {
-          conf.set(x.getKey.substring("spark.hadoop.".length), x.getValue.unwrapped().toString)
-        }
+      x => if (x.getKey.startsWith("spark.hadoop.")) {
+        conf.set(x.getKey.substring("spark.hadoop.".length), x.getValue.unwrapped().toString)
+      }
     }
 
     conf.set("io.file.buffer.size", settings.bufferSize.toString)
@@ -642,7 +641,7 @@ class SparkContext(
   }
 
   /** Return the driver Akka host and port for remote access */
-  private[spark] def getDriverHostAndPort = (settings.driverHost, settings.driverPort)
+  private[spark] def getDriverHostAndPort = (settings.driverHost, settings.driverPort.get)
 
   /**
    * Adds a JAR dependency for all tasks to be executed on this SparkContext in the future.
@@ -725,7 +724,7 @@ class SparkContext(
 
 
   /**
-   * Get Spark's home location from configuration, or the SPARK_HOME environment variable
+   * Get Spark's home location from configuration or the SPARK_HOME environment variable
    * (in that order of preference). If neither of these is set, return None.
    * Note that the configuration will pick up the system property as a backup.
    */

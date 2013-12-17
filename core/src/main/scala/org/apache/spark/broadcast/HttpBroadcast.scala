@@ -105,7 +105,7 @@ private object HttpBroadcast extends Logging {
           createServer()
           configUpdates = Map("spark.httpBroadcast.uri" -> serverUri)
         } else {
-          serverUri = settings.httpBroadcastURI
+          serverUri = settings.httpBroadcastURI.get
         }
         initialized = true
       }

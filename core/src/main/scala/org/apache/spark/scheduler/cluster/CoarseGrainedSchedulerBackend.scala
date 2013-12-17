@@ -205,7 +205,7 @@ class CoarseGrainedSchedulerBackend(scheduler: ClusterScheduler, actorSystem: Ac
     driverActor ! KillTask(taskId, executorId)
   }
 
-  override def defaultParallelism() = Try(scheduler.sc.settings.defaultParallelism).toOption
+  override def defaultParallelism() = scheduler.sc.settings.defaultParallelism
     .getOrElse(math.max(totalCoreCount.get(), 2))
 
   // Called by subclasses when notified of a lost worker

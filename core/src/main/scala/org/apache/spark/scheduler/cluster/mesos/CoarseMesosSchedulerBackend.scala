@@ -124,8 +124,8 @@ private[spark] class CoarseMesosSchedulerBackend(
     val driverUrl = "akka.tcp://spark@%s:%s/user/%s".format(
       driverHost, driverPort,
       CoarseGrainedSchedulerBackend.ACTOR_NAME)
-    Try(sc.settings.executorUri) match {
-      case Success(uri: String) =>
+    sc.settings.executorUri match {
+      case Some(uri: String) =>
         // Grab everything to the first '.'. We'll use that and '*' to
         // glob the directory "correctly".
         val basename = uri.split('/').last.split('.').head
@@ -133,7 +133,7 @@ private[spark] class CoarseMesosSchedulerBackend(
           "cd %s*; ./spark-class org.apache.spark.executor.CoarseGrainedExecutorBackend %s %s %s %d"
             .format(basename, driverUrl, offer.getSlaveId.getValue, offer.getHostname, numCores))
         command.addUris(CommandInfo.URI.newBuilder().setValue(uri))
-      case _ =>
+      case None =>
         val runScript = new File(sparkHome, "spark-class").getCanonicalPath
         command.setValue(
           "\"%s\" org.apache.spark.executor.CoarseGrainedExecutorBackend %s %s %s %d".format(

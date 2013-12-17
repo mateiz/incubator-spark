@@ -61,7 +61,7 @@ class ApplicationMaster(args: ApplicationMasterArguments, conf: Configuration,
   private var isLastAMRetry: Boolean = true
 
   // default to numWorkers * 2, with minimum of 3 
-  private val maxNumWorkerFailures = Try(settings.yarnMaxNumWorkerFailures).
+  private val maxNumWorkerFailures = settings.yarnMaxNumWorkerFailures.
     getOrElse(math.max(args.numWorkers * 2, 3))
 
   def run() {
@@ -171,7 +171,7 @@ class ApplicationMaster(args: ApplicationMasterArguments, conf: Configuration,
     val numTries = settings.yarnWaitTries
     while(!driverUp && tries < numTries) {
       val driverHost = settings.driverHost
-      val driverPort = settings.driverPort // TODO: this might throw exception.
+      val driverPort = settings.driverPort.get
       try {
         val socket = new Socket(driverHost, driverPort)
         socket.close()

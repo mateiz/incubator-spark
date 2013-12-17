@@ -144,10 +144,10 @@ object SparkEnv extends Logging {
       .withFallback(config)
 
     var settings: Settings = new Settings(conf)
-    val hostName2 = if (isDriver) settings.driverHost else hostName
-    val port = if (isDriver) Try(settings.driverPort).getOrElse(0) else 0
-    val (actorSystem: ActorSystem, boundPort: Int) =
-      AkkaUtils.createActorSystem("spark", hostName2, port, settings)
+    val effectiveHostName = if (isDriver) settings.driverHost else hostName
+    val port = if (isDriver) settings.driverPort.getOrElse(0) else 0
+    val (actorSystem, boundPort) =
+      AkkaUtils.createActorSystem("spark", effectiveHostName, port, settings)
 
     val driverConfig = if (isDriver) {
       Map("spark.driver.host" -> settings.driverHost, "spark.driver.port" -> boundPort)
@@ -158,7 +158,7 @@ object SparkEnv extends Logging {
     val broadcastManager = new BroadcastManager(isDriver, settings)
     val mergedConfig = conf ++ driverConfig ++ broadcastManager.configUpdates
 
-    settings = new Settings(mergedConfig) //Augmenting config with new settings.
+    settings = new Settings(mergedConfig) // Augmenting config with new settings.
 
     val classLoader = Thread.currentThread.getContextClassLoader
 
@@ -252,25 +252,18 @@ object SparkEnv extends Logging {
   }
 
   /**
-   * Optional configurations are defined as def for they will raise exception which can be
-   * handled and the optional path be taken.
-   * Note: Properties that do not have a default alternative can not be kept as val, use def
-   * instead.
+   * This is a group of settings for every SparkContext created by passing in a typesafe config object.
+   * It is intended to be immutable and have defaults for all mandatory properties. Optional configurations
+   * are defined as def and returns a [[scala.Option]] of expected type. Optional configuration do
+   * not have a default value, and it is not the case that they are initialized lazy or their values can be
+   * set at a later point.
    */
   private[spark] class Settings(internalConfig: Config) {
 
     import scala.reflect.classTag
 
-    private var mutableConf: Config = ConfigFactory.empty
+    private var effectiveConf: Config = ConfigFactory.empty
 
-    /**
-     * This method will let one modify only the optional configuration even after spark context is created.
-     * TODO: Decide whether this should be exposed to user or not.
-     * @param propertyName
-     * @param defaultValue
-     * @tparam T
-     * @return
-     */
     private def configure[T: ClassTag](propertyName: String, defaultValue: T): T = {
       import internalConfig._
 
@@ -279,7 +272,7 @@ object SparkEnv extends Logging {
         case CtagDouble => Try(getDouble(propertyName).asInstanceOf[T]).getOrElse(defaultValue)
         case CtagBool => Try(getBoolean(propertyName).asInstanceOf[T]).getOrElse(defaultValue)
         case CtagLong => Try(getLong(propertyName).asInstanceOf[T]).getOrElse(defaultValue)
-        case _ => //Default is treated as String.
+        case _ => // Default is treated as String.
           Try(getString(propertyName).asInstanceOf[T]).getOrElse(defaultValue)
       }
 
@@ -290,33 +283,26 @@ object SparkEnv extends Logging {
           ConfigFactory.parseString( s"""$propertyName="$result" """)
       }
 
-      mutableConf = con.withFallback(mutableConf)
+      effectiveConf = con.withFallback(effectiveConf)
       result
     }
 
-    @throws[Exception]
-    private def configure[T: ClassTag](propertyName: String): T = {
+    private def configure[T: ClassTag](propertyName: String): Option[T] = {
       import internalConfig._
 
-      val result = classTag[T] match {
+      Try(classTag[T] match {
         case CtagInt => getInt(propertyName).asInstanceOf[T]
         case CtagDouble => getDouble(propertyName).asInstanceOf[T]
         case CtagBool => getBoolean(propertyName).asInstanceOf[T]
         case CtagLong => getLong(propertyName).asInstanceOf[T]
-        case _ => //Default is treated as String.
+        case _ => // Default is treated as String.
           getString(propertyName).asInstanceOf[T]
-      }
-      val con = classTag[T] match {
-        case CtagInt | CtagLong | CtagDouble | CtagBool =>
-          ConfigFactory.parseString(s"$propertyName=$result")
-        case _ =>
-          ConfigFactory.parseString( s"""$propertyName="$result" """)
-      }
-      mutableConf = con.withFallback(mutableConf)
-      result
+      }).toOption
     }
 
     /* All of the configurations are set as final so that they can not be overriden. */
+
+    // Spark is never set in effective conf.
     final def sparkHome = Try(internalConfig.getString("spark.home")).toOption
       .orElse(Option(System.getenv("SPARK_HOME")))
 
@@ -491,8 +477,11 @@ object SparkEnv extends Logging {
       5000l)
     final val yarnPreserveFiles = configure("spark.yarn.preserve.staging.files", false)
 
-    override def toString = mutableConf.root.render(ConfigRenderOptions.defaults.setComments(true))
+    override def toString = effectiveConf.root.render(ConfigRenderOptions.defaults.setComments(true))
 
-    def config = mutableConf.withFallback(internalConfig)
+    /**
+     * Returns an effective configuration picked up by spark context.
+     */
+    def config = effectiveConf.withFallback(internalConfig)
   }
 }

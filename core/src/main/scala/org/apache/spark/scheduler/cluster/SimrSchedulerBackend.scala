@@ -37,7 +37,7 @@ private[spark] class SimrSchedulerBackend(
     super.start()
 
     val driverUrl = "akka.tcp://spark@%s:%s/user/%s".format(sc.settings.driverHost,
-      sc.settings.driverPort, CoarseGrainedSchedulerBackend.ACTOR_NAME)
+      sc.settings.driverPort.get, CoarseGrainedSchedulerBackend.ACTOR_NAME)
 
     val conf = new Configuration()
     val fs = FileSystem.get(conf)
