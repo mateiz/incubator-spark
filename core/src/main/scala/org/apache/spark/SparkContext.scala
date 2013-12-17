@@ -78,12 +78,6 @@ import org.apache.spark.util.ConfigUtils._
  *     }
  *   }
  * }}}
- *
- * == Old API ==
- * An alternative constructor exists to make transitioning to the new config-only API easier.
- *
- * There are also utilities in ConfigUtils to help with constructing configs for things like sparkHome,
- * jars, and the environment.
  */
 class SparkContext(
     val config: Config,
@@ -94,8 +88,26 @@ class SparkContext(
       scala.collection.immutable.Map())
   extends Logging {
 
-  /*** Alternative constructors ***/
-  def this(master: String, appName: String, extraConfig: Config = ConfigFactory.empty) =
+  /**
+   * Main entry point for Spark functionality. A SparkContext represents the connection to a Spark
+   * cluster, and can be used to create RDDs, accumulators and broadcast variables on that cluster.
+   *
+   * @param master Cluster URL to connect to (e.g. mesos://host:port, spark://host:port, local[4]).
+   * @param appName A name for your application, to display on the cluster web UI.
+   * @param sparkHome Location where Spark is installed on cluster nodes.
+   * @param jars Collection of JARs to send to the cluster. These can be paths on the local file
+   *             system or HDFS, HTTP, HTTPS, or FTP URLs.
+   * @param environment Environment variables to set on worker nodes.
+   */
+  def this(master: String, appName: String, sparkHome: String = null,
+  jars: Seq[String] = Nil, environment: Map[String, String] = Map(),
+  preferredNodeLocationData: scala.collection.Map[String, scala.collection.Set[SplitInfo]] =
+  scala.collection.immutable.Map()) =
+    this(configFromMasterAppName(master, appName) ++ configFromSparkHome(sparkHome)
+    ++ configFromEnvironmentMap(environment) ++ configFromJarList(jars), preferredNodeLocationData)
+
+  /*** Alternative constructor ***/
+  def this(master: String, appName: String, extraConfig: Config) =
     this(configFromMasterAppName(master, appName) ++ extraConfig)
 
   // Extract parameters from configuration

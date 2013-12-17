@@ -67,16 +67,28 @@ object ConfigUtils {
     configFromMap(Map("spark.master" -> master, "spark.appName" -> appName))
 
   /** Creates a Config from the spark home variable */
-  def configFromSparkHome(sparkHome: String): Config =
-    configFromMap(Map("spark.home" -> sparkHome))
+  def configFromSparkHome(sparkHome: String): Config = {
+    if (sparkHome != null)
+      configFromMap(Map("spark.home" -> sparkHome))
+    else
+      ConfigFactory.empty
+  }
 
   /** Creates a Config from a list of jar URLs */
-  def configFromJarList(jars: Seq[String]): Config =
-    configFromMap(Map("spark.jars" -> jars.asJava))
+  def configFromJarList(jars: Seq[String]): Config = {
+    if (jars != Nil)
+      configFromMap(Map("spark.jars" -> jars.asJava))
+    else
+      ConfigFactory.empty
+  }
 
   /** Creates a Config from a map of environment strings */
-  def configFromEnvironmentMap(environment: AnyMap[String, String]): Config =
-    configFromMap(environment).atPath("spark.environment")
+  def configFromEnvironmentMap(environment: AnyMap[String, String]): Config = {
+    if (!environment.isEmpty)
+      configFromMap(environment).atPath("spark.environment")
+    else
+      ConfigFactory.empty
+  }
 }
 
 /**
