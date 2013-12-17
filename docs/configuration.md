@@ -31,12 +31,14 @@ val sc = new SparkContext("local", name, extraConfig)
 
 ## Migrating from Spark 0.8 and earlier
 
-You can also use system properties for configuring Spark. You need to either pass it with a -D flag to the JVM (for example `java -Dspark.cores.max=5 MyProgram`) or call `System.setProperty` in your code *before* creating your Spark context. Now this is different than before, earlier(in older versions i.e. before 0.9.x) it was possible to configure even after spark context is created, it made sense inside the repl. However this is not possible now, the configuration either provided as config files or with setProperty has to be provided before creating a spark context. It is thus important to note *configuration settings are immutable* and are picked up at the time of creation of spark context.
+* Existing mechanism of using System properties for configuring Spark still works as such. You need to either pass it with a -D flag to the JVM (for example `java -Dspark.cores.max=5 MyProgram`) or call `System.setProperty` in your code *before* creating your Spark context. Now this is different than before, earlier(in older versions i.e. before 0.9.x) it was possible to configure even after spark context is created, it made sense inside the repl. However this is not possible now, the configuration either provided as config files or with setProperty has to be provided before creating a spark context. It is thus important to note *configuration settings are immutable* and are picked up at the time of creation of spark context.
 
 {% highlight scala %}
 System.setProperty("spark.cores.max", "5")
 val sc = new SparkContext(...)
 {% endhighlight %}
+
+* Property spark.ui.retained_stages is changed to spark.ui.retainedStages.
 
 ## Important properties
 
@@ -134,7 +136,7 @@ Apart from these, the following properties are also available, and may be useful
   </td>
 </tr>
 <tr>
-  <td>spark.ui.retained_stages</td>
+  <td>spark.ui.retainedStages</td>
   <td>1000</td>
   <td>
     How many stages the Spark UI remembers before garbage collecting.
@@ -398,6 +400,13 @@ Apart from these, the following properties are also available, and may be useful
   <td>1.5</td>
   <td>
     How many times slower a task is than the median to be considered for speculation.
+  </td>
+</tr>
+<tr>
+  <td>spark.logConf</td>
+  <td>false</td>
+  <td>
+    Diagnostic logging of the actually applied configuration. It includes all the defaults as well. 
   </td>
 </tr>
 </table>

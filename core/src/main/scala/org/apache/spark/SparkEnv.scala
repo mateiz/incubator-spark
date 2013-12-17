@@ -322,7 +322,7 @@ object SparkEnv extends Logging {
 
     final val sparkLocalDir = configure("spark.local.dir", System.getProperty("java.io.tmpdir"))
     final val memoryFraction = configure("spark.storage.memoryFraction", 0.66)
-    final val logConf = configure("spark.log.confAsInfo", false)
+    final val logConf = configure("spark.logConf", false)
     final val sparkUser = Try(internalConfig.getString("user.name")).getOrElse(
       Option(System.getenv("SPARK_USER")).getOrElse(SparkContext.SPARK_UNKNOWN_USER))
 
@@ -337,7 +337,7 @@ object SparkEnv extends Logging {
 
     final def useCompressedOops = configure[Boolean]("spark.test.useCompressedOops")
 
-    final val retainedStages = configure("spark.ui.retained_stages", 1000)
+    final val retainedStages = configure("spark.ui.retainedStages", 1000)
     final val sparkUiPort = configure("spark.ui.port", SparkUI.DEFAULT_PORT)
     final val consolidateShuffleFiles = configure("spark.shuffle.consolidateFiles", true)
     final val shuffleBufferSize = configure("spark.shuffle.file.buffer.kb", 100)
