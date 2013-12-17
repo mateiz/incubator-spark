@@ -157,8 +157,13 @@ object SparkEnv extends Logging {
 
     val broadcastManager = new BroadcastManager(isDriver, settings)
     val mergedConfig = conf ++ driverConfig ++ broadcastManager.configUpdates
-
-    settings = new Settings(mergedConfig) // Augmenting config with new settings.
+    // Augmenting settings with new config obtained after updates above.
+    // The reason we had to do this is settings is immutable and for a change
+    // in config to be reflected it had to be re-created.
+    // On driver it updates driver host and port and if any updates from
+    // broadcast manager. It depends upon what is broadcast factory is pointing to,
+    // which broadcast manager may update in the mergedConfig.
+    settings = new Settings(mergedConfig)
 
     val classLoader = Thread.currentThread.getContextClassLoader
 
