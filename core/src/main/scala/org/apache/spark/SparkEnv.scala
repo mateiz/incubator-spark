@@ -121,9 +121,9 @@ object SparkEnv extends Logging {
   }
 
   /**
-   * Creates a SparkEnv from configuration.
-   * The config object passed in is not modified (all Typesafe Config objects are immutable).  However,
-   * updates are merged into a new config object and passed into SparkEnv.
+   * Creates a SparkEnv from the supplied configuration.
+   * The config object passed in is not modified (all Typesafe Config objects are immutable).
+   * However, updates are merged into a new config object and passed into SparkEnv.
    * @param executorId 0 for driver, or the executer ID
    * @param config the Typesafe Config object to be used for configuring Spark
    * @param isDriver true if this is the driver
@@ -139,11 +139,7 @@ object SparkEnv extends Logging {
 
     val httpFileServer = new HttpFileServer()
     httpFileServer.initialize()
-    val conf = ConfigFactory.
-      parseString( s"""spark.fileserver.uri = "${httpFileServer.serverUri}" """)
-      .withFallback(config)
-
-    var settings: Settings = new Settings(conf)
+    var settings: Settings = new Settings(config)
     val effectiveHostName = if (isDriver) settings.driverHost else hostName
     val port = if (isDriver) settings.driverPort.getOrElse(0) else 0
     val (actorSystem, boundPort) =
@@ -156,7 +152,7 @@ object SparkEnv extends Logging {
     }
 
     val broadcastManager = new BroadcastManager(isDriver, settings)
-    val mergedConfig = conf ++ driverConfig ++ broadcastManager.configUpdates
+    val mergedConfig = config ++ driverConfig ++ broadcastManager.configUpdates
     // Augmenting settings with new config obtained after updates above.
     // The reason we had to do this is settings is immutable and for a change
     // in config to be reflected it had to be re-created.
@@ -257,16 +253,18 @@ object SparkEnv extends Logging {
   }
 
   /**
-   * This is a group of settings for every SparkContext created by passing in a typesafe config object.
-   * It is intended to be immutable and have defaults for all mandatory properties. Optional configurations
-   * are defined as def and returns a [[scala.Option]] of expected type. Optional configuration do
-   * not have a default value, and it is not the case that they are initialized lazy or their values can be
-   * set at a later point.
+   * Settings for a SparkContext derived from a supplied Typesafe config object. Required
+   * properties will be assigned to default values if they are not supplied in the passed-in
+   * config. Optional properties are defined as defs that return a [[scala.Option]]
+   * of the expected type.
+   *
+   * Once a Settings object is created, all values are immutable including optional values.
    */
   private[spark] class Settings(internalConfig: Config) {
 
     import scala.reflect.classTag
 
+    /** Stores the effective configuration after all defaults have been applied. */
     private var effectiveConf: Config = ConfigFactory.empty
 
     private def configure[T: ClassTag](propertyName: String, defaultValue: T): T = {

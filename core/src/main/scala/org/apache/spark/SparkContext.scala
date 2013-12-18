@@ -101,11 +101,11 @@ class SparkContext(
    * @param environment Environment variables to set on worker nodes.
    */
   def this(master: String, appName: String, sparkHome: String = null,
-  jars: Seq[String] = Nil, environment: Map[String, String] = Map(),
-  preferredNodeLocationData: scala.collection.Map[String, scala.collection.Set[SplitInfo]] =
-  scala.collection.immutable.Map()) =
-    this(configFromMasterAppName(master, appName) ++ configFromSparkHome(sparkHome)
-    ++ configFromEnvironmentMap(environment) ++ configFromJarList(jars), preferredNodeLocationData)
+    jars: Seq[String] = Nil, environment: Map[String, String] = Map(),
+    preferredNodeLocationData: scala.collection.Map[String, scala.collection.Set[SplitInfo]] =
+    scala.collection.immutable.Map()) =
+      this(configFromMasterAppName(master, appName) ++ configFromSparkHome(sparkHome)
+        ++ configFromEnvironmentMap(environment) ++ configFromJarList(jars), preferredNodeLocationData)
 
   /*** Alternative constructor ***/
   def this(master: String, appName: String, extraConfig: Config) =

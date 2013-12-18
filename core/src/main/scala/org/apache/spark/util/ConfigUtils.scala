@@ -30,8 +30,8 @@ import org.apache.spark.SparkEnv
 object ConfigUtils {
   def configFromMap(map: AnyMap[String, _]): Config = ConfigFactory.parseMap(map.asJava)
 
-  val SparkDefaultConf = "org/apache/spark/spark-defaults.conf"
-  val SparkConfigUrlProperty = "spark.config.url"
+  val sparkDefaultConf = "org/apache/spark/spark-defaults.conf"
+  val sparkConfigUrlProperty = "spark.config.url"
   // This may be used for global settings only as in the ones used in Singletons(object).
   // otherwise use the settings object propagated via sparkcontext.
   lazy val settings = new SparkEnv.Settings(ConfigUtils.loadConfig())
@@ -48,8 +48,8 @@ object ConfigUtils {
    */
   def loadConfig(): Config = {
     val properties = ConfigFactory.systemProperties()
-    val defaults = ConfigFactory.parseResources(SparkDefaultConf, parseOptions)
-    val configUrl = Option(System.getProperty(SparkConfigUrlProperty))
+    val defaults = ConfigFactory.parseResources(sparkDefaultConf, parseOptions)
+    val configUrl = Option(System.getProperty(sparkConfigUrlProperty))
                       .orElse(Option(System.getenv("SPARK_CONFIG_URL")))
     configUrl match {
       case None =>
