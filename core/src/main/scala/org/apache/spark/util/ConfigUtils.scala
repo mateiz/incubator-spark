@@ -39,12 +39,12 @@ object ConfigUtils {
   val parseOptions = ConfigParseOptions.defaults.setAllowMissing(false)
 
   /**
-   * Loads the Spark configuration according to the following priorities (what appears higher on the list
-   * will override keys on the bottom)
-   * 1. System properties
-   * 2. config file (could be JSON) defined at URL in system property "spark.config.url", if defined
-   *    Alternatively the environment variable SPARK_CONFIG_URL is also checked.
-   * 3. spark-defaults.conf (in classpath / resources)
+   * Loads the Spark configuration in the order of their precedence.
+   * 1. System properties (Highest precedence)
+   * 2. Config file in any valid typesafe config format defined at URL in system property
+   *    "spark.config.url", if set.
+   * 3. The environment variable SPARK_CONFIG_URL is checked.
+   * 4. spark-defaults.conf (in classpath / resources)
    */
   def loadConfig(): Config = {
     val properties = ConfigFactory.systemProperties()
@@ -53,10 +53,11 @@ object ConfigUtils {
                       .orElse(Option(System.getenv("SPARK_CONFIG_URL")))
     configUrl match {
       case None =>
-        defaults ++ properties
-      case Some(configUrl) =>
-        val javaUrl = new java.net.URL(configUrl)
-        defaults ++ ConfigFactory.parseURL(javaUrl, parseOptions) ++ properties
+       properties.withFallback(defaults)
+      case Some(url) =>
+        val javaUrl = new java.net.URL(url)
+        properties.withFallback(ConfigFactory.parseURL(javaUrl, parseOptions))
+          .withFallback(defaults)
     }
   }
 
@@ -95,11 +96,7 @@ object ConfigUtils {
  * Adds convenience methods for dealing with Typesafe Config objects
  */
 class RichConfig(config: Config) {
-  def ++(other: Config): Config = other.withFallback(config)
-  def ++(map: AnyMap[String, _]): Config = ConfigUtils.configFromMap(map).withFallback(config)
-
-  /** config + ("some.key" -> value) */
-  def +(keyValue: (String, Any)): Config = ++(Map(keyValue))
+  def withOverrideMap(map: AnyMap[String, _]): Config = ConfigUtils.configFromMap(map).withFallback(config)
 
   /** Reads all the subkeys under a key, assumed to be a JSON object / map, and returns their values
    *  as a map of (subkey) -> value.toString

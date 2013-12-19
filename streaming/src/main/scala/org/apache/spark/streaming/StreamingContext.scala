@@ -103,10 +103,10 @@ class StreamingContext private (
   protected[streaming] val sc: SparkContext = {
     if (isCheckpointPresent) {
       new SparkContext(cp_.master, cp_.framework,
-                       configFromSparkHome(cp_.sparkHome) ++
-                       configFromJarList(cp_.jars) ++
-                       configFromEnvironmentMap(cp_.environment) ++
-                       ConfigFactory.parseString(cp_.sparkConf))
+                       configFromSparkHome(cp_.sparkHome)
+                       .withFallback(configFromJarList(cp_.jars))
+                       .withFallback(configFromEnvironmentMap(cp_.environment))
+                       .withFallback(ConfigFactory.parseString(cp_.sparkConf)))
     } else {
       sc_
     }

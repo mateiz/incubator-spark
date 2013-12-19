@@ -83,7 +83,8 @@ class JavaStreamingContext(val ssc: StreamingContext) {
       sparkHome: String,
       jarFile: String) =
     this(new StreamingContext(master, appName, batchDuration,
-                              configFromSparkHome(sparkHome) ++ configFromJarList(Seq(jarFile))))
+                              configFromSparkHome(sparkHome)
+                                .withFallback(configFromJarList(Seq(jarFile)))))
 
   /**
    * Creates a StreamingContext.
@@ -101,7 +102,8 @@ class JavaStreamingContext(val ssc: StreamingContext) {
       sparkHome: String,
       jars: Array[String]) =
     this(new StreamingContext(master, appName, batchDuration,
-                              configFromSparkHome(sparkHome) ++ configFromJarList(jars)))
+                              configFromSparkHome(sparkHome)
+                                .withFallback(configFromJarList(jars))))
 
   /**
    * Creates a StreamingContext.
@@ -121,8 +123,9 @@ class JavaStreamingContext(val ssc: StreamingContext) {
     jars: Array[String],
     environment: JMap[String, String]) =
     this(new StreamingContext(master, appName, batchDuration,
-                              configFromSparkHome(sparkHome) ++ configFromJarList(jars) ++
-                              configFromEnvironmentMap(environment.toMap)))
+                              configFromSparkHome(sparkHome)
+                                .withFallback(configFromJarList(jars))
+                                .withFallback(configFromEnvironmentMap(environment.toMap))))
 
   /**
    * Creates a StreamingContext using an existing SparkContext.

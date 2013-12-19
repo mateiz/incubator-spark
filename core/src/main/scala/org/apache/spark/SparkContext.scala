@@ -104,12 +104,13 @@ class SparkContext(
     jars: Seq[String] = Nil, environment: Map[String, String] = Map(),
     preferredNodeLocationData: scala.collection.Map[String, scala.collection.Set[SplitInfo]] =
     scala.collection.immutable.Map()) =
-      this(configFromMasterAppName(master, appName) ++ configFromSparkHome(sparkHome)
-        ++ configFromEnvironmentMap(environment) ++ configFromJarList(jars), preferredNodeLocationData)
+      this(configFromJarList(jars).withFallback(configFromMasterAppName(master, appName))
+        .withFallback(configFromSparkHome(sparkHome))
+        .withFallback(configFromEnvironmentMap(environment)), preferredNodeLocationData)
 
   /*** Alternative constructor ***/
   def this(master: String, appName: String, extraConfig: Config) =
-    this(configFromMasterAppName(master, appName) ++ extraConfig)
+    this(extraConfig.withFallback(configFromMasterAppName(master, appName)))
 
   // Extract parameters from configuration
   val master = config.getString("spark.master")
@@ -126,7 +127,7 @@ class SparkContext(
   // 3. Config file in any valid typesafe config format defined at URL in system property
   //    "spark.config.url", if set.
   // 4. Defaults in spark-defaults.conf in classpath
-  val mergedConfig = loadConfig() ++ config
+  val mergedConfig = config.withFallback(loadConfig())
 
   val isLocal = (master == "local" || master.startsWith("local["))
   val hostName = Try(mergedConfig.getString("spark.driver.host")).getOrElse(Utils.localHostName())

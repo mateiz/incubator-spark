@@ -949,10 +949,10 @@ class SparkILoop(in0: Option[BufferedReader], protected val out: JPrintWriter,
                                                 .getOrElse(new Array[String](0))
                                                 .map(new java.io.File(_).getAbsolutePath)
     val conf = if (uri != null) {
-      configFromJarList(jars) + ("spark.repl.class.uri" -> intp.classServer.uri) +
-        ("spark.executor.uri" -> uri)
+      configFromJarList(jars).withOverrideMap(Map("spark.repl.class.uri" -> intp.classServer.uri,
+        "spark.executor.uri" -> uri))
     } else {
-      configFromJarList(jars) + ("spark.repl.class.uri" -> intp.classServer.uri)
+      configFromJarList(jars).withOverrideMap(Map("spark.repl.class.uri" -> intp.classServer.uri))
     }
     try {
       sparkContext = new SparkContext(master, "Spark shell", conf)

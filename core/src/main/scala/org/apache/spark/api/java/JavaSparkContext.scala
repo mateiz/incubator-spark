@@ -70,7 +70,8 @@ class JavaSparkContext(val sc: SparkContext) extends JavaSparkContextVarargsWork
    */
   def this(master: String, appName: String, sparkHome: String, jarFile: String) =
     this(new SparkContext(master, appName,
-                          configFromSparkHome(sparkHome) ++ configFromJarList(Seq(jarFile))))
+                          configFromSparkHome(sparkHome)
+                            .withFallback(configFromJarList(Seq(jarFile)))))
 
   /**
    * @param master Cluster URL to connect to (e.g. mesos://host:port, spark://host:port, local[4]).
@@ -81,7 +82,8 @@ class JavaSparkContext(val sc: SparkContext) extends JavaSparkContextVarargsWork
    */
   def this(master: String, appName: String, sparkHome: String, jars: Array[String]) =
     this(new SparkContext(master, appName,
-                          configFromSparkHome(sparkHome) ++ configFromJarList(jars.toSeq)))
+                          configFromSparkHome(sparkHome)
+                            .withFallback(configFromJarList(jars.toSeq))))
 
   /**
    * @param master Cluster URL to connect to (e.g. mesos://host:port, spark://host:port, local[4]).
@@ -94,8 +96,9 @@ class JavaSparkContext(val sc: SparkContext) extends JavaSparkContextVarargsWork
   def this(master: String, appName: String, sparkHome: String, jars: Array[String],
       environment: JMap[String, String]) =
     this(new SparkContext(master, appName,
-                          configFromSparkHome(sparkHome) ++ configFromJarList(jars.toSeq) ++
-                          configFromEnvironmentMap(environment.toMap)))
+                          configFromSparkHome(sparkHome)
+                            .withFallback(configFromJarList(jars.toSeq))
+                            .withFallback(configFromEnvironmentMap(environment.toMap))))
 
   private[spark] val env = sc.env
 

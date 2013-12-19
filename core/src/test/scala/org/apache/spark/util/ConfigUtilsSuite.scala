@@ -86,11 +86,11 @@ class ConfigUtilsSuite extends FunSuite with BeforeAndAfter {
     import ConfigUtils._
     val jars = Seq("http://abc.co/def.jar", "/path/to/bbb.jar")
     val config = ConfigUtils.configFromJarList(jars)
-    val config2 = config ++ ConfigUtils.configFromSparkHome("/etc/spark")
+    val config2 = config.withFallback(ConfigUtils.configFromSparkHome("/etc/spark"))
     assert(config2.getStringList("spark.jars").asScala === jars)
     assert(config2.getString("spark.home") === "/etc/spark")
 
-    val config3 = config2 ++ Map("spark.home" -> "/abc/def")
+    val config3 = config2.withOverrideMap(Map("spark.home" -> "/abc/def"))
     assert(config3.getString("spark.home") === "/abc/def")
   }
 }

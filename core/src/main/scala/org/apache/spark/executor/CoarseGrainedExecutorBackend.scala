@@ -52,7 +52,7 @@ private[spark] class CoarseGrainedExecutorBackend(
   override def receive = {
     case RegisteredExecutor(sparkConfig) =>
       logInfo("Successfully registered with driver")
-      if (Try(sparkConfig.getBoolean("spark.log.confAsInfo")).getOrElse(false))
+      if (Try(sparkConfig.getBoolean("spark.logConf")).getOrElse(false))
         logInfo("Configuration: \n" + sparkConfig.root.render)
       // Make this host instead of hostPort ?
       executor = new Executor(executorId, Utils.parseHostPort(hostPort)._1, sparkConfig)
