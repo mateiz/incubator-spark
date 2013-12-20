@@ -29,7 +29,7 @@ trait SharedSparkContext extends BeforeAndAfterAll { self: Suite =>
   def conf = ConfigFactory.empty
 
   override def beforeAll() {
-    _sc = new SparkContext("local", "test", conf)
+    _sc = new SparkContext("local", "test", new SparkConf().overrideWith(conf))
     super.beforeAll()
   }
 

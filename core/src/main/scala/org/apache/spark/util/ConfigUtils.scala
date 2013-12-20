@@ -18,7 +18,6 @@
 package org.apache.spark.util
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable.HashMap
 import scala.collection.{Map => AnyMap}
 
 import com.typesafe.config.{Config, ConfigFactory, ConfigParseOptions}
@@ -30,35 +29,23 @@ import org.apache.spark.SparkEnv
 object ConfigUtils {
   def configFromMap(map: AnyMap[String, _]): Config = ConfigFactory.parseMap(map.asJava)
 
-  val sparkDefaultConf = "org/apache/spark/spark-defaults.conf"
-  val sparkConfigUrlProperty = "spark.config.url"
+  val sparkDefaultConf = "spark.conf"
   // This may be used for global settings only as in the ones used in Singletons(object).
-  // otherwise use the settings object propagated via sparkcontext.
+  // otherwise use the settings object propagated via SparkContext or SparkEnv.
   lazy val settings = new SparkEnv.Settings(ConfigUtils.loadConfig())
-  // Change the default parse options so that missing files throw an exception, instead of returning empty
-  val parseOptions = ConfigParseOptions.defaults.setAllowMissing(false)
+  val parseOptions = ConfigParseOptions.defaults.setAllowMissing(true)
 
   /**
    * Loads the Spark configuration in the order of their precedence.
    * 1. System properties (Highest precedence)
-   * 2. Config file in any valid typesafe config format defined at URL in system property
-   *    "spark.config.url", if set.
-   * 3. The environment variable SPARK_CONFIG_URL is checked.
-   * 4. spark-defaults.conf (in classpath / resources)
+   * 2. spark.conf (in classpath / resources)
    */
   def loadConfig(): Config = {
     val properties = ConfigFactory.systemProperties()
     val defaults = ConfigFactory.parseResources(sparkDefaultConf, parseOptions)
-    val configUrl = Option(System.getProperty(sparkConfigUrlProperty))
-                      .orElse(Option(System.getenv("SPARK_CONFIG_URL")))
-    configUrl match {
-      case None =>
-       properties.withFallback(defaults)
-      case Some(url) =>
-        val javaUrl = new java.net.URL(url)
-        properties.withFallback(ConfigFactory.parseURL(javaUrl, parseOptions))
-          .withFallback(defaults)
-    }
+
+    properties.withFallback(defaults)
+
   }
 
   implicit def config2RichConfig(config: Config): RichConfig = new RichConfig(config)
@@ -96,7 +83,7 @@ object ConfigUtils {
  * Adds convenience methods for dealing with Typesafe Config objects
  */
 class RichConfig(config: Config) {
-  def withOverrideMap(map: AnyMap[String, _]): Config = ConfigUtils.configFromMap(map).withFallback(config)
+  def overrideWithMap(map: AnyMap[String, _]): Config = ConfigUtils.configFromMap(map).withFallback(config)
 
   /** Reads all the subkeys under a key, assumed to be a JSON object / map, and returns their values
    *  as a map of (subkey) -> value.toString

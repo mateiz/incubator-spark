@@ -22,10 +22,10 @@ import java.io.{IOException, ObjectInputStream}
 import scala.collection.mutable.{ArrayBuffer, SynchronizedBuffer}
 import scala.reflect.ClassTag
 
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{Config, ConfigFactory}
 import org.scalatest.{BeforeAndAfter, FunSuite}
 
-import org.apache.spark.Logging
+import org.apache.spark.{SparkConf, Logging}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.streaming.dstream.{ForEachDStream, InputDStream}
 import org.apache.spark.streaming.util.ManualClock
@@ -130,6 +130,8 @@ trait TestSuiteBase extends FunSuite with BeforeAndAfter with Logging {
 
   // Whether to actually wait in real time before changing manual clock
   def actuallyWait = false
+  implicit def autoAdaptForTestsOnly(config: Config): SparkConf =
+    new SparkConf().overrideWith(config)
 
   /**
    * Set up required DStreams to test the DStream operation using the two sequences

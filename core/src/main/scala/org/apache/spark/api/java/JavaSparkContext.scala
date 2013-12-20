@@ -30,12 +30,13 @@ import org.apache.hadoop.mapreduce.{InputFormat => NewInputFormat}
 import com.google.common.base.Optional
 import com.typesafe.config.Config
 
-import org.apache.spark.{Accumulable, AccumulableParam, Accumulator, AccumulatorParam, SparkContext}
+import org.apache.spark._
 import org.apache.spark.SparkContext.IntAccumulatorParam
 import org.apache.spark.SparkContext.DoubleAccumulatorParam
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.rdd.RDD
 import org.apache.spark.util.ConfigUtils._
+import scala.Tuple2
 
 /**
  * A Java-friendly version of [[org.apache.spark.SparkContext]] that returns [[org.apache.spark.api.java.JavaRDD]]s and
@@ -46,14 +47,15 @@ class JavaSparkContext(val sc: SparkContext) extends JavaSparkContextVarargsWork
   /**
    * @param config A Typesafe Config object to use to configure the SparkContext
    */
-  def this(config: Config) = this(new SparkContext(config))
+  def this(config: SparkConf) = this(new SparkContext(config))
 
   /**
    * @param master Cluster URL to connect to (e.g. mesos://host:port, spark://host:port, local[4]).
    * @param appName A name for your application, to display on the cluster web UI
    * @param config A Typesafe Config object for supplying extra configuration
    */
-  def this(master: String, appName: String, config: Config) = this(new SparkContext(master, appName, config))
+  def this(master: String, appName: String, config: SparkConf) =
+    this(new SparkContext(master, appName, config))
 
   /**
    * @param master Cluster URL to connect to (e.g. mesos://host:port, spark://host:port, local[4]).
@@ -70,8 +72,8 @@ class JavaSparkContext(val sc: SparkContext) extends JavaSparkContextVarargsWork
    */
   def this(master: String, appName: String, sparkHome: String, jarFile: String) =
     this(new SparkContext(master, appName,
-                          configFromSparkHome(sparkHome)
-                            .withFallback(configFromJarList(Seq(jarFile)))))
+      new SparkConf().overrideWith(configFromSparkHome(sparkHome)
+        .withFallback(configFromJarList(Seq(jarFile))))))
 
   /**
    * @param master Cluster URL to connect to (e.g. mesos://host:port, spark://host:port, local[4]).
@@ -82,8 +84,8 @@ class JavaSparkContext(val sc: SparkContext) extends JavaSparkContextVarargsWork
    */
   def this(master: String, appName: String, sparkHome: String, jars: Array[String]) =
     this(new SparkContext(master, appName,
-                          configFromSparkHome(sparkHome)
-                            .withFallback(configFromJarList(jars.toSeq))))
+      new SparkConf().overrideWith(configFromSparkHome(sparkHome)
+        .withFallback(configFromJarList(jars.toSeq)))))
 
   /**
    * @param master Cluster URL to connect to (e.g. mesos://host:port, spark://host:port, local[4]).
@@ -96,9 +98,9 @@ class JavaSparkContext(val sc: SparkContext) extends JavaSparkContextVarargsWork
   def this(master: String, appName: String, sparkHome: String, jars: Array[String],
       environment: JMap[String, String]) =
     this(new SparkContext(master, appName,
-                          configFromSparkHome(sparkHome)
-                            .withFallback(configFromJarList(jars.toSeq))
-                            .withFallback(configFromEnvironmentMap(environment.toMap))))
+      new SparkConf().overrideWith(configFromSparkHome(sparkHome)
+        .withFallback(configFromJarList(jars.toSeq))
+          .withFallback(configFromEnvironmentMap(environment.toMap)))))
 
   private[spark] val env = sc.env
 

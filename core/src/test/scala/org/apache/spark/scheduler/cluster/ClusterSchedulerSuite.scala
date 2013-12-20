@@ -161,7 +161,7 @@ class ClusterSchedulerSuite extends FunSuite with LocalSparkContext with Logging
   test("Fair Scheduler Test") {
     val xmlPath = getClass.getClassLoader.getResource("fairscheduler.xml").getFile()
     val c = ConfigFactory.parseString(s"spark.scheduler.allocation.file=$xmlPath")
-    sc = new SparkContext("local", "ClusterSchedulerSuite", c)
+    sc = new SparkContext("local", "ClusterSchedulerSuite", new SparkConf().overrideWith(c))
     val clusterScheduler = new ClusterScheduler(sc)
     var tasks = ArrayBuffer[Task[_]]()
     val task = new FakeTask(0)

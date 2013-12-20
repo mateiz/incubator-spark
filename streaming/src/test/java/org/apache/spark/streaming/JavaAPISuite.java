@@ -47,7 +47,7 @@ import org.apache.spark.streaming.api.java.JavaStreamingContext;
 import org.apache.spark.streaming.dstream.SparkFlumeEvent;
 import org.apache.spark.streaming.JavaTestUtils;
 import org.apache.spark.streaming.JavaCheckpointTestUtils;
-
+import org.apache.spark.SparkConf;
 import java.io.*;
 import java.util.*;
 
@@ -68,7 +68,7 @@ public class JavaAPISuite implements Serializable {
     m.put("spark.appName", "test");
     m.put("spark.streaming.batchDuration", "1000");
     m.put("spark.streaming.clock","org.apache.spark.streaming.util.ManualClock");
-    ssc = new JavaStreamingContext(ConfigFactory.parseMap(m));
+    ssc = new JavaStreamingContext(new SparkConf().overrideWith(ConfigFactory.parseMap(m)));
     ssc.checkpoint("checkpoint");
   }
 

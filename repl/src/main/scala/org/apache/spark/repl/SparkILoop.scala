@@ -36,6 +36,7 @@ import scala.reflect.api.{Mirror, TypeCreator, Universe => ApiUniverse}
 
 import org.apache.spark.Logging
 import org.apache.spark.SparkContext
+import org.apache.spark.SparkConf
 import org.apache.spark.SparkEnv
 import org.apache.spark.util.ConfigUtils
 
@@ -949,13 +950,13 @@ class SparkILoop(in0: Option[BufferedReader], protected val out: JPrintWriter,
                                                 .getOrElse(new Array[String](0))
                                                 .map(new java.io.File(_).getAbsolutePath)
     val conf = if (uri != null) {
-      configFromJarList(jars).withOverrideMap(Map("spark.repl.class.uri" -> intp.classServer.uri,
+      configFromJarList(jars).overrideWithMap(Map("spark.repl.class.uri" -> intp.classServer.uri,
         "spark.executor.uri" -> uri))
     } else {
-      configFromJarList(jars).withOverrideMap(Map("spark.repl.class.uri" -> intp.classServer.uri))
+      configFromJarList(jars).overrideWithMap(Map("spark.repl.class.uri" -> intp.classServer.uri))
     }
     try {
-      sparkContext = new SparkContext(master, "Spark shell", conf)
+      sparkContext = new SparkContext(master, "Spark shell", new SparkConf().overrideWith(conf))
       } catch {
       case e: Exception =>
         e.printStackTrace()

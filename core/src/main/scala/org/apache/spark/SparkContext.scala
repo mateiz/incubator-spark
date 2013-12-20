@@ -30,7 +30,6 @@ import scala.collection.mutable.{ArrayBuffer, HashMap}
 import scala.reflect.{ClassTag, classTag}
 import scala.util.Try
 
-import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.hadoop.io.{ArrayWritable, BooleanWritable, BytesWritable, DoubleWritable,
@@ -81,7 +80,7 @@ import org.apache.spark.util.ConfigUtils._
  * }}}
  */
 class SparkContext(
-    val config: Config,
+    val config: SparkConf,
     // This is used only by YARN for now, but should be relevant to other cluster types (mesos, etc)
     // too. This is typically generated from InputFormatInfo.computePreferredLocations .. host, set
     // of data-local splits on host
@@ -104,19 +103,19 @@ class SparkContext(
     jars: Seq[String] = Nil, environment: Map[String, String] = Map(),
     preferredNodeLocationData: scala.collection.Map[String, scala.collection.Set[SplitInfo]] =
     scala.collection.immutable.Map()) =
-      this(configFromJarList(jars).withFallback(configFromMasterAppName(master, appName))
+      this(new SparkConf().overrideWith(configFromJarList(jars).withFallback(configFromMasterAppName(master, appName))
         .withFallback(configFromSparkHome(sparkHome))
-        .withFallback(configFromEnvironmentMap(environment)), preferredNodeLocationData)
+        .withFallback(configFromEnvironmentMap(environment))), preferredNodeLocationData)
 
   /*** Alternative constructor ***/
-  def this(master: String, appName: String, extraConfig: Config) =
-    this(extraConfig.withFallback(configFromMasterAppName(master, appName)))
+  def this(master: String, appName: String, extraConfig: SparkConf) =
+    this(extraConfig.overrideWith(configFromMasterAppName(master, appName)))
 
   // Extract parameters from configuration
-  val master = config.getString("spark.master")
-  val appName = config.getString("spark.appName")
-  val environment = Try(config.getMap("spark.environment")).getOrElse(Map.empty[String, String])
-  val jars = Try(config.getStringList("spark.jars").toList).getOrElse(List.empty[String])
+  val master = config.internalConf.getString("spark.master")
+  val appName = config.internalConf.getString("spark.appName")
+  val environment = Try(config.internalConf.getMap("spark.environment")).getOrElse(Map.empty[String, String])
+  val jars = Try(config.internalConf.getStringList("spark.jars").toList).getOrElse(List.empty[String])
 
   // Ensure logging is initialized before we spawn any threads
   initLogging()
@@ -124,10 +123,7 @@ class SparkContext(
   // Obtain a merged configuration in the order of their precedence.
   // 1. Any config settings defined in the config parameter
   // 2. Java system properties
-  // 3. Config file in any valid typesafe config format defined at URL in system property
-  //    "spark.config.url", if set.
-  // 4. Defaults in spark-defaults.conf in classpath
-  val mergedConfig = config.withFallback(loadConfig())
+  val mergedConfig = config.internalConf.withFallback(loadConfig())
 
   val isLocal = (master == "local" || master.startsWith("local["))
   val hostName = Try(mergedConfig.getString("spark.driver.host")).getOrElse(Utils.localHostName())
@@ -207,7 +203,7 @@ class SparkContext(
      import scala.collection.JavaConversions._
     // Copy any "spark.hadoop.foo=bar" system properties into conf as "foo=bar"
     // TODO Test this.
-    config.entrySet().foreach {
+    config.internalConf.entrySet().foreach {
       x => if (x.getKey.startsWith("spark.hadoop.")) {
         conf.set(x.getKey.substring("spark.hadoop.".length), x.getValue.unwrapped().toString)
       }
@@ -1159,6 +1155,64 @@ object SparkContext {
         throw new SparkException("Could not parse Master URL: '" + master + "'")
     }
   }
+
+  sealed trait TBoolean
+
+  sealed trait TTrue extends TBoolean
+
+  sealed trait TFalse extends TBoolean
+
+  // Following lines were picked from [[scala.Predef]] to adapt the implicit not found message.
+  @scala.annotation.implicitNotFound(msg = "Please supply master url and App name to " +
+    "SparkConfBuilder by calling SparkConfBuilder().withMasterUrl(someUrl).withAppName(name)" +
+    " and only then you can call .build() or .set(x, y). ")
+  sealed abstract class =:=[F, T] extends (F => T)
+
+  private[this] final val singleton1_=:= = new =:=[Any, Any] {
+    def apply(x: Any): Any = x
+  }
+
+  object =:= {
+    implicit def tpEquals[A]: A =:= A = singleton1_=:=.asInstanceOf[A =:= A]
+  }
+
+  class SparkConfBuilder
+    [HasMasterUrl <: TBoolean, HasAppName <: TBoolean] private(conf: SparkConf) {
+
+    def withMasterUrl(masterUrl: String)(implicit ev: HasMasterUrl =:= TFalse,
+                                         ek: HasAppName =:= TFalse) = {
+      new SparkConfBuilder[TTrue, TFalse](conf.set("spark.master", masterUrl))
+    }
+
+    def withAppName(name: String)(implicit ev: HasMasterUrl =:= TTrue,
+                                  ek: HasAppName =:= TFalse) = {
+      new SparkConfBuilder[TTrue, TTrue](conf.set("spark.appName", name))
+    }
+
+    def set[T](key: String, value: T)(implicit ev: HasMasterUrl =:= TTrue,
+                                      ek: HasAppName =:= TTrue, em: ClassTag[T]) = {
+      new SparkConfBuilder[TTrue, TTrue](conf.set(key, value))
+    }
+
+    import scala.collection.immutable
+    def withConfFromMap(map: immutable.Map[String, _])(implicit ev: HasMasterUrl =:= TTrue,
+                                               ek: HasAppName =:= TTrue) = {
+      new SparkConfBuilder[TTrue, TTrue](conf.overrideWithMap(map))
+    }
+
+    // following means that we enable .build method if withMasterUrl is called exactly once.
+    def build(implicit ev: HasMasterUrl =:= TTrue) = conf
+  }
+
+  /** Spark conf builder, A configuration builder to create [[org.apache.spark.SparkConf]].
+    * It uses a type system trick, that will enforce the user to not be able to compile his
+    * code unless both master url and app name are supplied. It also displays a help text
+    * in the compile error message.
+    */
+  object SparkConfBuilder {
+    def apply() = new SparkConfBuilder[TFalse, TFalse](new SparkConf)
+  }
+
 }
 
 /**

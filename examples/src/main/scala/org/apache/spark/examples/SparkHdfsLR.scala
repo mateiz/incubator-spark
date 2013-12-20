@@ -24,6 +24,7 @@ import org.apache.spark._
 import org.apache.spark.deploy.SparkHadoopUtil
 import org.apache.spark.scheduler.InputFormatInfo
 import org.apache.spark.util.ConfigUtils._
+import org.apache.spark.SparkContext.SparkConfBuilder
 
 /**
  * Logistic regression based classification.
@@ -54,11 +55,12 @@ object SparkHdfsLR {
     }
     val inputPath = args(1)
     val conf = SparkHadoopUtil.get.newConfiguration()
+    val sparkConf = SparkConfBuilder().withMasterUrl(args(0)).withAppName("SparkHdfsLR")
+      .withConfFromMap(Map("spark.jars" -> Seq(System.getenv("SPARK_EXAMPLES_JAR")))).build
     val sc = new SparkContext(
-      configFromMasterAppName(args(0), "SparkHdfsLR")
-      .withFallback(configFromJarList(Seq(System.getenv("SPARK_EXAMPLES_JAR")))),
+      sparkConf,
       InputFormatInfo.computePreferredLocations(
-          Seq(new InputFormatInfo(conf, classOf[org.apache.hadoop.mapred.TextInputFormat], inputPath))))
+        Seq(new InputFormatInfo(conf, classOf[org.apache.hadoop.mapred.TextInputFormat], inputPath))))
     val lines = sc.textFile(inputPath)
     val points = lines.map(parsePoint _).cache()
     val ITERATIONS = args(2).toInt

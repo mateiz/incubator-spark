@@ -17,31 +17,27 @@
 
 package org.apache.spark.streaming.api.java
 
-import java.lang.{Integer => JInt}
 import java.io.InputStream
-import java.util.{Map => JMap, List => JList}
+import java.lang.{Integer => JInt}
+import java.util.{List => JList, Map => JMap}
 
 import scala.collection.JavaConversions._
 import scala.reflect.ClassTag
 
+import akka.actor.{Props, SupervisorStrategy}
+import akka.util.ByteString
+import akka.zeromq.Subscribe
 import org.apache.hadoop.mapreduce.{InputFormat => NewInputFormat}
 import twitter4j.Status
-import akka.actor.Props
-import akka.actor.SupervisorStrategy
-import akka.zeromq.Subscribe
-import akka.util.ByteString
-import com.typesafe.config.{Config, ConfigFactory}
-
 import twitter4j.auth.Authorization
 
+import org.apache.spark.SparkConf
+import org.apache.spark.api.java.{JavaPairRDD, JavaRDD, JavaSparkContext}
+import org.apache.spark.api.java.function.{Function => JFunction, Function2 => JFunction2}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.storage.StorageLevel
-import org.apache.spark.api.java.function.{Function => JFunction, Function2 => JFunction2}
-import org.apache.spark.api.java.{JavaPairRDD, JavaSparkContext, JavaRDD}
 import org.apache.spark.streaming._
 import org.apache.spark.streaming.dstream._
-
-import org.apache.spark.streaming.receivers.{ActorReceiver, ReceiverSupervisorStrategy}
 import org.apache.spark.util.ConfigUtils._
 
 /**
@@ -56,7 +52,7 @@ class JavaStreamingContext(val ssc: StreamingContext) {
   // - Support creating and registering InputStreams
 
 
-  def this(config: Config) = this(new StreamingContext(config))
+  def this(config: SparkConf) = this(new StreamingContext(config))
 
   /**
    * Creates a StreamingContext.
@@ -83,8 +79,8 @@ class JavaStreamingContext(val ssc: StreamingContext) {
       sparkHome: String,
       jarFile: String) =
     this(new StreamingContext(master, appName, batchDuration,
-                              configFromSparkHome(sparkHome)
-                                .withFallback(configFromJarList(Seq(jarFile)))))
+      new SparkConf().overrideWith(configFromSparkHome(sparkHome)
+        .withFallback(configFromJarList(Seq(jarFile))))))
 
   /**
    * Creates a StreamingContext.
@@ -102,8 +98,8 @@ class JavaStreamingContext(val ssc: StreamingContext) {
       sparkHome: String,
       jars: Array[String]) =
     this(new StreamingContext(master, appName, batchDuration,
-                              configFromSparkHome(sparkHome)
-                                .withFallback(configFromJarList(jars))))
+      new SparkConf().overrideWith(configFromSparkHome(sparkHome)
+        .withFallback(configFromJarList(jars)))))
 
   /**
    * Creates a StreamingContext.
@@ -123,9 +119,9 @@ class JavaStreamingContext(val ssc: StreamingContext) {
     jars: Array[String],
     environment: JMap[String, String]) =
     this(new StreamingContext(master, appName, batchDuration,
-                              configFromSparkHome(sparkHome)
-                                .withFallback(configFromJarList(jars))
-                                .withFallback(configFromEnvironmentMap(environment.toMap))))
+      new SparkConf().overrideWith(configFromSparkHome(sparkHome)
+        .withFallback(configFromJarList(jars))
+          .withFallback(configFromEnvironmentMap(environment.toMap)))))
 
   /**
    * Creates a StreamingContext using an existing SparkContext.

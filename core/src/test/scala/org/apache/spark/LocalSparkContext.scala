@@ -17,17 +17,16 @@
 
 package org.apache.spark
 
-import org.scalatest.Suite
-import org.scalatest.BeforeAndAfterEach
-import org.scalatest.BeforeAndAfterAll
-
-import org.jboss.netty.logging.InternalLoggerFactory
-import org.jboss.netty.logging.Slf4JLoggerFactory
+import com.typesafe.config.Config
+import org.jboss.netty.logging.{InternalLoggerFactory, Slf4JLoggerFactory}
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, Suite}
 
 /** Manages a local `sc` {@link SparkContext} variable, correctly stopping it after each test. */
 trait LocalSparkContext extends BeforeAndAfterEach with BeforeAndAfterAll { self: Suite =>
 
   @transient var sc: SparkContext = _
+  implicit def autoAdaptForTestsOnly(config: Config): SparkConf =
+    new SparkConf().overrideWith(config)
 
   override def beforeAll() {
     InternalLoggerFactory.setDefaultFactory(new Slf4JLoggerFactory())

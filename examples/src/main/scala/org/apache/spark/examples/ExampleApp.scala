@@ -17,10 +17,11 @@
 
 package org.apache.spark.examples
 
-import org.apache.spark.SparkContext
+import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.util.ConfigUtils._
 
 trait ExampleApp {
   def createContext(master: String, name: String): SparkContext =
-    new SparkContext(master, name, configFromJarList(Seq(System.getenv("SPARK_EXAMPLES_JAR"))))
+    new SparkContext(master, name, new SparkConf()
+      .overrideWith(configFromJarList(Seq(System.getenv("SPARK_EXAMPLES_JAR")))))
 }

@@ -31,7 +31,7 @@ import org.apache.spark.streaming.StreamingContext
 import org.apache.spark.streaming.StreamingContext.toPairDStreamFunctions
 import org.apache.spark.streaming.receivers.Receiver
 import org.apache.spark.util.{AkkaUtils, ConfigUtils}
-import org.apache.spark.SparkEnv
+import org.apache.spark.{SparkConf, SparkEnv}
 
 case class SubscribeReceiver(receiverActor: ActorRef)
 case class UnsubscribeReceiver(receiverActor: ActorRef)
@@ -128,7 +128,9 @@ object FeederActor {
 }
 
 object ExampleConfig {
-  def jarConfig = ConfigUtils.configFromJarList(Seq(System.getenv("SPARK_EXAMPLES_JAR")))
+  //TODO do it using SparkConfBuilder instead.
+  def jarConfig = new SparkConf()
+    .overrideWith(ConfigUtils.configFromJarList(Seq(System.getenv("SPARK_EXAMPLES_JAR"))))
 }
 
 /**

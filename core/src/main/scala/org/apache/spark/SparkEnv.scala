@@ -152,8 +152,8 @@ object SparkEnv extends Logging {
     }
 
     val broadcastManager = new BroadcastManager(isDriver, settings)
-    val mergedConfig = config.withOverrideMap(driverConfig)
-      .withOverrideMap(broadcastManager.configUpdates)
+    val mergedConfig = config.overrideWithMap(driverConfig)
+      .overrideWithMap(broadcastManager.configUpdates)
     // Augmenting settings with new config obtained after updates above.
     // The reason we had to do this is settings is immutable and for a change
     // in config to be reflected it had to be re-created.

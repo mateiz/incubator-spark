@@ -23,15 +23,14 @@ import java.io._
 import java.net.URL
 import java.util.concurrent.TimeoutException
 
-import scala.concurrent.{Await, future, promise}
-import scala.concurrent.duration._
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.collection.mutable.ListBuffer
+import scala.concurrent.{Await, future, promise}
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
 import scala.sys.process._
 
 import net.liftweb.json.JsonParser
-
-import org.apache.spark.{Logging, SparkContext}
+import org.apache.spark.{Logging, SparkConf, SparkContext}
 import org.apache.spark.deploy.master.RecoveryState
 import org.apache.spark.util.ConfigUtils
 
@@ -197,7 +196,8 @@ private[spark] object FaultToleranceTest extends App with Logging {
     // Counter-hack: Because of a hack in SparkEnv#createFromSystemProperties() that changes this
     // property, we need to reset it.
     System.setProperty("spark.driver.port", "0")
-    sc = new SparkContext(getMasterUrls(masters), "fault-tolerance", extraConfig)
+    sc = new SparkContext(getMasterUrls(masters), "fault-tolerance",
+      new SparkConf().overrideWith(extraConfig))
   }
 
   def getMasterUrls(masters: Seq[TestMasterInfo]): String = {

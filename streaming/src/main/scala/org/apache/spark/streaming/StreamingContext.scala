@@ -55,8 +55,8 @@ class StreamingContext private (
     batchDur_ : Duration
   ) extends Logging {
 
-  def this(config: Config) = this(new SparkContext(config),
-    null, Duration(config.getLong("spark.streaming.batchDuration")))
+  def this(config: SparkConf) = this(new SparkContext(config),
+    null, Duration(config.internalConf.getLong("spark.streaming.batchDuration")))
 
   /**
    * Create a StreamingContext using an existing SparkContext.
@@ -77,7 +77,7 @@ class StreamingContext private (
       master: String,
       appName: String,
       batchDuration: Duration,
-      extraConfig: Config = ConfigFactory.empty) = {
+      extraConfig: SparkConf = new SparkConf) = {
     this(StreamingContext.createNewSparkContext(master, appName, extraConfig),
          null, batchDuration)
   }
@@ -103,10 +103,10 @@ class StreamingContext private (
   protected[streaming] val sc: SparkContext = {
     if (isCheckpointPresent) {
       new SparkContext(cp_.master, cp_.framework,
-                       configFromSparkHome(cp_.sparkHome)
+                       new SparkConf().overrideWith(configFromSparkHome(cp_.sparkHome)
                        .withFallback(configFromJarList(cp_.jars))
                        .withFallback(configFromEnvironmentMap(cp_.environment))
-                       .withFallback(ConfigFactory.parseString(cp_.sparkConf)))
+                       .withFallback(ConfigFactory.parseString(cp_.sparkConf))))
     } else {
       sc_
     }
@@ -568,7 +568,7 @@ object StreamingContext {
   protected[streaming] def createNewSparkContext(
       master: String,
       appName: String,
-      extraConfig: Config): SparkContext = {
+      extraConfig: SparkConf): SparkContext = {
     new SparkContext(master, appName, extraConfig)
   }
 
