@@ -59,24 +59,19 @@ import org.apache.spark.util.ConfigUtils._
  * Main entry point for Spark functionality. A SparkContext represents the connection to a Spark
  * cluster, and can be used to create RDDs, accumulators and broadcast variables on that cluster.
  *
- * @param config a Typesafe Config object describing the context configuration. Any settings in this
+ * @param config a SparkConf object describing the context configuration. Any settings in this
  *               config overrides the default configs as well as system properties.
- *               For more details: https://github.com/typesafehub/config
  *
- * == Configuration Details ==
- * Only spark.master and spark.appName are required.
+ * Create SparkConf as follows.
  * {{{
- *   spark {
- *     master = "local[4]"    # Cluster URL to connect to (local[4], local-cluster, spark://host:port, etc)
- *     appName = "demodemo"   # A name for your application, to display on the cluster web UI
- *     home = "/home/spark/spark"   # Location where Spark is installed on cluster nodes.  Usually doesn't
- *                                    need to be specified.
- *     jars = ["http://a.be.c/file1", "/etc/jars/meme.jar"]   # List of JARs to send to cluster, could be
- *                                    local file paths or HDFS, HTTP, HTTPS, FTP URLs
- *     environment {          # Environment vars to send
- *       SPARK_CONFIG_DIR = /etc/spark/conf
- *     }
- *   }
+ * 
+ * val sparkConf = SparkConfBuilder().withMasterUrl("local").withAppName("name").build
+ *  // Or for also inculding jars if any.
+ * val sparkConf = SparkConfBuilder().withMasterUrl("local").withAppName("name")
+ *  .withConfFromMap(Map("spark.jars" -> Seq("jar1.jar", "jar2.jar"))).build
+ * // A SparkContext can be created by writing: 
+ * new SparkContext(sparkConf)
+ * 
  * }}}
  */
 class SparkContext(
@@ -1156,61 +1151,46 @@ object SparkContext {
     }
   }
 
-  sealed trait TBoolean
+  /** Use SparkConfBuilder.apply() to create instances. */
+  class SparkConfBuilder private(conf: SparkConf) {
 
-  sealed trait TTrue extends TBoolean
-
-  sealed trait TFalse extends TBoolean
-
-  // Following lines were picked from [[scala.Predef]] to adapt the implicit not found message.
-  @scala.annotation.implicitNotFound(msg = "Please supply master url and App name to " +
-    "SparkConfBuilder by calling SparkConfBuilder().withMasterUrl(someUrl).withAppName(name)" +
-    " and only then you can call .build() or .set(x, y). ")
-  sealed abstract class =:=[F, T] extends (F => T)
-
-  private[this] final val singleton1_=:= = new =:=[Any, Any] {
-    def apply(x: Any): Any = x
-  }
-
-  object =:= {
-    implicit def tpEquals[A]: A =:= A = singleton1_=:=.asInstanceOf[A =:= A]
-  }
-
-  class SparkConfBuilder
-    [HasMasterUrl <: TBoolean, HasAppName <: TBoolean] private(conf: SparkConf) {
-
-    def withMasterUrl(masterUrl: String)(implicit ev: HasMasterUrl =:= TFalse,
-                                         ek: HasAppName =:= TFalse) = {
-      new SparkConfBuilder[TTrue, TFalse](conf.set("spark.master", masterUrl))
+    /** Spark Master URL, for running locally it can be local[N], where N is No. of threads */
+    def withMasterUrl(masterUrl: String) = {
+      new SparkConfBuilder(conf.set("spark.master", masterUrl))
     }
 
-    def withAppName(name: String)(implicit ev: HasMasterUrl =:= TTrue,
-                                  ek: HasAppName =:= TFalse) = {
-      new SparkConfBuilder[TTrue, TTrue](conf.set("spark.appName", name))
+    /** Spark Application Name */
+    def withAppName(name: String) = {
+      new SparkConfBuilder(conf.set("spark.appName", name))
     }
 
-    def set[T](key: String, value: T)(implicit ev: HasMasterUrl =:= TTrue,
-                                      ek: HasAppName =:= TTrue, em: ClassTag[T]) = {
-      new SparkConfBuilder[TTrue, TTrue](conf.set(key, value))
+    /** Set arbitrary configuration params */
+    def set[T: ClassTag](key: String, value: T) = {
+      new SparkConfBuilder(conf.set(key, value))
     }
 
     import scala.collection.immutable
-    def withConfFromMap(map: immutable.Map[String, _])(implicit ev: HasMasterUrl =:= TTrue,
-                                               ek: HasAppName =:= TTrue) = {
-      new SparkConfBuilder[TTrue, TTrue](conf.overrideWithMap(map))
+    /** Accepts an immutable Map of conf params and overrides the configuration */
+    def withConfFromMap(map: immutable.Map[String, _]) = {
+      new SparkConfBuilder(conf.overrideWithMap(map))
     }
 
-    // following means that we enable .build method if withMasterUrl is called exactly once.
-    def build(implicit ev: HasMasterUrl =:= TTrue) = conf
+    def build() = {
+      Try(conf.internalConf.getString("spark.master"))
+        .recover{case _ => throw new SparkException("Can not build spark conf without master url.")}
+      Try(conf.internalConf.getString("spark.appName"))
+        .recover{ 
+         case _ => throw new SparkException("Can not build spark conf without Application Name.")
+      }
+      conf
+    }
   }
 
-  /** Spark conf builder, A configuration builder to create [[org.apache.spark.SparkConf]].
-    * It uses a type system trick, that will enforce the user to not be able to compile his
-    * code unless both master url and app name are supplied. It also displays a help text
-    * in the compile error message.
+  /** 
+    *  Spark conf builder, A configuration builder to create [[org.apache.spark.SparkConf]].
     */
   object SparkConfBuilder {
-    def apply() = new SparkConfBuilder[TFalse, TFalse](new SparkConf)
+    def apply() = new SparkConfBuilder(new SparkConf)
   }
 
 }

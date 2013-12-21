@@ -12,26 +12,23 @@ Spark provides three main locations to configure the system:
 
 # SparkContext Configuration
 
-A Spark application may be configured in a number of different ways. The configuration methods are listed in order of precedence.
+A Spark application may be configured in following ways. The configuration methods are listed in order of precedence.
 
-1. Any Config objects passed in through the SparkContext constructor. These are [Typesafe Config](https://github.com/typesafehub/config) instances, which can easily be created from JSON or .property files.
+1. Any SparkConf object passed in through the SparkContext constructor. See `SparkConfBuilder` for details on how to create `SparkConf`.
 2. Java system properties, defined programmatically (`System.setProperty`) or through -D flags passed in to the JVM
-3. A config file (could be JSON) defined at the URL in the system property `spark.config.url`, or the environment variable `SPARK_CONFIG_URL`, if defined.  This could be HTTP, FTP, or just plain file URI.
-4. The defaults in `org.apache.spark.spark-defaults.conf` in the classpath
+3. The global configuration params in `spark.conf` in the classpath.
 
 For example, to programmatically set some properties and directly pass it into a SparkContext, you can do
 
 {% highlight scala %}
-val extraConfig = ConfigUtils.parseFromMap(Map(
-  "spark.cores.max" -> 5,
-  "spark.mesos.coarse" -> true,
-))
-val sc = new SparkContext("local", name, extraConfig)
+    val sparkConf = SparkConfBuilder().withMasterUrl("local[4]").withAppName("SparkAppName")
+      .withConfFromMap(Map("spark.jars" -> Seq("jar1.jar", "jar2.jar"))).build
+    val sc = new SparkContext(sparkConf)
 {% endhighlight %}
 
 ## Migrating from Spark 0.8 and earlier
 
-* Existing mechanism of using System properties for configuring Spark still works as such. You need to either pass it with a -D flag to the JVM (for example `java -Dspark.cores.max=5 MyProgram`) or call `System.setProperty` in your code *before* creating your Spark context. Now this is different than before, earlier(in older versions i.e. before 0.9.x) it was possible to configure even after spark context is created, it made sense inside the repl. However this is not possible now, the configuration either provided as config files or with setProperty has to be provided before creating a spark context. It is thus important to note *configuration settings are immutable* and are picked up at the time of creation of spark context.
+* Existing mechanism of using System properties for configuring Spark still works as such. You need to either pass it with a -D flag to the JVM (for example `java -Dspark.cores.max=5 MyProgram`) or call `System.setProperty` in your code *before* creating your Spark context. Now this is different than before, earlier(in older versions i.e. before 0.9.x) it was possible to configure even after spark context is created, it made sense inside the repl. However this is not possible now, the configuration either provided as config files or with setProperty has to be provided before creating a spark context. It is thus important to note **configuration settings are immutable** and are picked up at the time of creation of spark context.
 
 {% highlight scala %}
 System.setProperty("spark.cores.max", "5")
@@ -303,11 +300,11 @@ Apart from these, the following properties are also available, and may be useful
   <td>spark.akka.heartbeat.pauses</td>
   <td>600</td>
   <td>
-     This is set to a larger value to disable failure detector that comes inbuilt akka. It can be enabled again, if you plan to use this feature (Not recommended). Acceptable heart beat pause in seconds for akka. This can be used to control sensitivity to gc pauses. Tune this in combination of `spark.akka.heartbeat.interval` and `spark.akka.failure-detector.threshold` if you need to.
+     This is set to a larger value to disable failure detector that comes inbuilt akka. It can be enabled again, if you plan to use this feature (Not recommended). Acceptable heart beat pause in seconds for akka. This can be used to control sensitivity to gc pauses. Tune this in combination of `spark.akka.heartbeat.interval` and `spark.akka.failureDetector.threshold` if you need to.
   </td>
 </tr>
 <tr>
-  <td>spark.akka.failure-detector.threshold</td>
+  <td>spark.akka.failureDetector.threshold</td>
   <td>300.0</td>
   <td>
      This is set to a larger value to disable failure detector that comes inbuilt akka. It can be enabled again, if you plan to use this feature (Not recommended). This maps to akka's `akka.remote.transport-failure-detector.threshold`. Tune this in combination of `spark.akka.heartbeat.pauses` and `spark.akka.heartbeat.interval` if you need to.
@@ -317,7 +314,7 @@ Apart from these, the following properties are also available, and may be useful
   <td>spark.akka.heartbeat.interval</td>
   <td>1000</td>
   <td>
-    This is set to a larger value to disable failure detector that comes inbuilt akka. It can be enabled again, if you plan to use this feature (Not recommended). A larger interval value in seconds reduces network overhead and a smaller value ( ~ 1 s) might be more informative for akka's failure detector. Tune this in combination of `spark.akka.heartbeat.pauses` and `spark.akka.failure-detector.threshold` if you need to. Only positive use case for using failure detector can be, a sensistive failure detector can help evict rogue executors really quick. However this is usually not the case as gc pauses and network lags are expected in a real spark cluster. Apart from that enabling this leads to a lot of exchanges of heart beats between nodes leading to flooding the network with those. 
+    This is set to a larger value to disable failure detector that comes inbuilt akka. It can be enabled again, if you plan to use this feature (Not recommended). A larger interval value in seconds reduces network overhead and a smaller value ( ~ 1 s) might be more informative for akka's failure detector. Tune this in combination of `spark.akka.heartbeat.pauses` and `spark.akka.failureDetector.threshold` if you need to. Only positive use case for using failure detector can be, a sensistive failure detector can help evict rogue executors really quick. However this is usually not the case as gc pauses and network lags are expected in a real spark cluster. Apart from that enabling this leads to a lot of exchanges of heart beats between nodes leading to flooding the network with those. 
   </td>
 </tr>
 <tr>

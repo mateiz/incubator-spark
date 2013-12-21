@@ -14,7 +14,7 @@ import org.apache.spark.SparkContext._
  */
 private[spark] class SparkConf {
   // internal mutable config.
-  var config = CF.empty
+  private var config = CF.empty
 
   private[spark] def set[T: ClassTag](k: String, value: T) = {
     classTag[T] match {
@@ -37,11 +37,6 @@ private[spark] class SparkConf {
   }
 
   private[spark] def internalConf = config
-}
 
-
-// An example usage
-object ConfTest {
-  val compiles = SparkConfBuilder().withMasterUrl("local").withAppName("name").build
-  //  val doesNotCompile = SparkConfBuilder().withAppName("name").build
+  override def toString() = config.root.render()
 }

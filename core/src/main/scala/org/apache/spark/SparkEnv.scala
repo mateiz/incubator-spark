@@ -389,7 +389,7 @@ object SparkEnv extends Logging {
     final val akkaFrameSize = configure("spark.akka.frameSize", 10)
     final val lifecycleEvents = if (configure("spark.akka.logLifecycleEvents", false)) "on" else "off"
     final val akkaHeartBeatPauses = configure("spark.akka.heartbeat.pauses", 600)
-    final val akkaFailureDetector = configure("spark.akka.failure-detector.threshold", 300.0)
+    final val akkaFailureDetector = configure("spark.akka.failureDetector.threshold", 300.0)
     final val akkaHeartBeatInterval = configure("spark.akka.heartbeat.interval", 1000)
     final val askTimeout = configure("spark.akka.askTimeout", 10)
 
