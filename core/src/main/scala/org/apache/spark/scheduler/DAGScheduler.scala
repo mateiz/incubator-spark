@@ -21,7 +21,7 @@ import java.io.NotSerializableException
 import java.util.Properties
 import java.util.concurrent.atomic.AtomicInteger
 
-import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet, Map}
+import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet, Map, Stack}
 import scala.concurrent.duration._
 import scala.reflect.ClassTag
 
@@ -307,6 +307,9 @@ class DAGScheduler(
   private def getParentStages(rdd: RDD[_], jobId: Int): List[Stage] = {
     val parents = new HashSet[Stage]
     val visited = new HashSet[RDD[_]]
+    // Explicitly use a Stack when doing depth-first search to avoid stack overflow error
+    // in large lineage graphs
+    val toVisit = Stack[RDD[_]](rdd)
     def visit(r: RDD[_]) {
       if (!visited(r)) {
         visited += r
@@ -317,18 +320,23 @@ class DAGScheduler(
             case shufDep: ShuffleDependency[_,_] =>
               parents += getShuffleMapStage(shufDep, jobId)
             case _ =>
-              visit(dep.rdd)
+              toVisit.push(dep.rdd)
           }
         }
       }
     }
-    visit(rdd)
+    while (!toVisit.isEmpty) {
+      visit(toVisit.pop())
+    }
     parents.toList
   }
 
   private def getMissingParentStages(stage: Stage): List[Stage] = {
     val missing = new HashSet[Stage]
     val visited = new HashSet[RDD[_]]
+    // Explicitly use a Stack when doing depth-first search to avoid stack overflow error
+    // in large lineage graphs
+    val toVisit = Stack[RDD[_]](stage.rdd)
     def visit(rdd: RDD[_]) {
       if (!visited(rdd)) {
         visited += rdd
@@ -341,13 +349,15 @@ class DAGScheduler(
                   missing += mapStage
                 }
               case narrowDep: NarrowDependency[_] =>
-                visit(narrowDep.rdd)
+                toVisit.push(narrowDep.rdd)
             }
           }
         }
       }
     }
-    visit(stage.rdd)
+    while (!toVisit.isEmpty) {
+      visit(toVisit.pop())
+    }
     missing.toList
   }
 

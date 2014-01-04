@@ -86,6 +86,10 @@ class ALSSuite extends FunSuite with BeforeAndAfterAll {
     System.clearProperty("spark.driver.port")
   }
 
+  test("lots of iterations") {
+    testALS(50, 100, 1, 40, 0.7, 0.3)
+  }
+
   test("rank-1 matrices") {
     testALS(50, 100, 1, 15, 0.7, 0.3)
   }

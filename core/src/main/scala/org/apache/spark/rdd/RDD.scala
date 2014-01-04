@@ -190,7 +190,7 @@ abstract class RDD[T: ClassTag](
   final def dependencies: Seq[Dependency[_]] = {
     checkpointRDD.map(r => List(new OneToOneDependency(r))).getOrElse {
       if (dependencies_ == null) {
-        dependencies_ = getDependencies
+        dependencies_ = getDependencies.toArray : Array[Dependency[_]]  // Easier to serialize
       }
       dependencies_
     }
